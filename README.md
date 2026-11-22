@@ -38,9 +38,24 @@ echo "sdk.dir=D:\\tools\\android-sdk" > local.properties   # 改成你的路径
 # 3. 测试（34 个单元测试 + 4 个界面快照）
 ./gradlew testDebugUnitTest
 
-# 4. 重新生成界面截图（会更新 app/src/test/snapshots 与 docs 用的图）
+# 4. 交互测试（需要真机或模拟器）
+./gradlew connectedDebugAndroidTest
+
+# 5. 重新生成界面截图（会更新 app/src/test/snapshots 与 docs 用的图）
 ./gradlew recordPaparazziDebug
 ```
+
+想在电脑上跑起来，可以建一个模拟器：
+
+```bash
+sdkmanager "emulator" "system-images;android-34;google_apis;x86_64" \
+           "extras;google;Android_Emulator_Hypervisor_Driver"
+avdmanager create avd -n aiacc -k "system-images;android-34;google_apis;x86_64" -d pixel_5
+emulator -avd aiacc
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Windows 上要先装加速驱动（`silent_install.bat`，管理员权限），否则 x86 模拟器起不来。
 
 ## 目录结构
 
