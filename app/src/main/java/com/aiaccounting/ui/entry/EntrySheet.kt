@@ -1,0 +1,333 @@
+package com.aiaccounting.ui.entry
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.aiaccounting.core.DateLabels
+import com.aiaccounting.core.Money
+import com.aiaccounting.data.local.CategoryEntity
+import com.aiaccounting.domain.TxType
+import com.aiaccounting.ui.components.SegmentToggle
+import com.aiaccounting.ui.theme.BrandBlue
+import com.aiaccounting.ui.theme.BrandBlueDeep
+import com.aiaccounting.ui.theme.BrandBlueSoft
+import com.aiaccounting.ui.theme.BrandBlueSofter
+import com.aiaccounting.ui.theme.TextFaint
+import com.aiaccounting.ui.theme.TextMain
+import com.aiaccounting.ui.theme.TextSub
+import com.aiaccounting.ui.theme.TrackBg
+import java.time.Instant
+import java.time.ZoneId
+
+private val KEYPAD = listOf(
+    "7", "8", "9", "⌫",
+    "4", "5", "6", "+",
+    "1", "2", "3", "-",
+    ".", "0", "C", "完成",
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EntrySheet(
+    state: EntryUiState,
+    onKey: (String) -> Unit,
+    onType: (TxType) -> Unit,
+    onCategory: (Long) -> Unit,
+    onAccount: (Long) -> Unit,
+    onNote: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 18.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SegmentToggle(
+                    options = listOf("支出", "收入"),
+                    selectedIndex = if (state.type == TxType.EXPENSE) 0 else 1,
+                    onSelect = { index ->
+                        onType(if (index == 0) TxType.EXPENSE else TxType.INCOME)
+                    },
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = DateLabels.time(System.currentTimeMillis(), ZoneId.systemDefault()),
+                    fontSize = 12.sp,
+                    color = TextFaint,
+                )
+            }
+
+            AmountDisplay(state)
+
+            CategoryGrid(state = state, onCategory = onCategory)
+
+            AccountRow(state = state, onAccount = onAccount)
+
+            NoteField(note = state.note, onNote = onNote)
+
+            Keypad(state = state, onKey = onKey, onSave = onSave)
+        }
+    }
+}
+
+@Composable
+private fun AmountDisplay(state: EntryUiState) {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = "¥",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (state.amountCents != null) TextMain else TextFaint,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = Money.format(state.amountCents ?: 0L),
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (state.amountCents != null) TextMain else TextFaint,
+            )
+        }
+        val hasOperator = state.expression.contains('+') || state.expression.contains('-')
+        Text(
+            text = if (hasOperator) "${state.expression} = ${Money.plain(state.amountCents ?: 0L)}" else " ",
+            fontSize = 11.sp,
+            color = TextSub,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun CategoryGrid(state: EntryUiState, onCategory: (Long) -> Unit) {
+    Column(
+        modifier = Modifier.padding(top = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        state.categories.chunked(5).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                row.forEach { category ->
+                    CategoryCell(
+                        category = category,
+                        selected = category.id == state.categoryId,
+                        modifier = Modifier.weight(1f),
+                        onClick = onCategory,
+                    )
+                }
+                repeat(5 - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryCell(
+    category: CategoryEntity,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: (Long) -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick(category.id) }
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(if (selected) BrandBlueSoft else BrandBlueSofter)
+                .then(
+                    if (selected) {
+                        Modifier.border(1.5.dp, BrandBlue, CircleShape)
+                    } else {
+                        Modifier
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = category.emoji, fontSize = 19.sp)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = category.name,
+            fontSize = 11.sp,
+            color = if (selected) BrandBlue else TextSub,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        )
+    }
+}
+
+@Composable
+private fun AccountRow(state: EntryUiState, onAccount: (Long) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        state.accounts.forEach { account ->
+            val selected = account.id == state.accountId
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(if (selected) BrandBlueSoft else BrandBlueSofter)
+                    .clickable { onAccount(account.id) }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = account.emoji, fontSize = 13.sp)
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = account.name,
+                    fontSize = 12.sp,
+                    color = if (selected) BrandBlueDeep else TextSub,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteField(note: String, onNote: (String) -> Unit) {
+    BasicTextField(
+        value = note,
+        onValueChange = onNote,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(BrandBlueSofter)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        textStyle = TextStyle(fontSize = 13.sp, color = TextMain),
+        singleLine = true,
+        decorationBox = { inner ->
+            Box {
+                if (note.isEmpty()) {
+                    Text(text = "备注（可选）", fontSize = 13.sp, color = TextFaint)
+                }
+                inner()
+            }
+        },
+    )
+}
+
+@Composable
+private fun Keypad(state: EntryUiState, onKey: (String) -> Unit, onSave: () -> Unit) {
+    Column(
+        modifier = Modifier.padding(top = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        KEYPAD.chunked(4).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { key ->
+                    if (key == "完成") {
+                        CompleteKey(
+                            state = state,
+                            modifier = Modifier.weight(1f),
+                            onSave = onSave,
+                        )
+                    } else {
+                        KeyCell(key = key, modifier = Modifier.weight(1f), onKey = onKey)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KeyCell(key: String, modifier: Modifier = Modifier, onKey: (String) -> Unit) {
+    val accent = key in listOf("+", "-", "⌫", "C")
+    Box(
+        modifier = modifier
+            .height(50.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (accent) TrackBg else BrandBlueSofter)
+            .clickable { onKey(key) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = key,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (accent) BrandBlue else TextMain,
+        )
+    }
+}
+
+@Composable
+private fun CompleteKey(
+    state: EntryUiState,
+    modifier: Modifier = Modifier,
+    onSave: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .height(50.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (state.canSave) BrandBlue else BrandBlue.copy(alpha = 0.35f))
+            .clickable(enabled = state.canSave) { onSave() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (state.saving) "保存中" else "完成",
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
