@@ -22,7 +22,8 @@
 - Kotlin 2.0.21 + Jetpack Compose（Material 3，自建蓝白主题）
 - Room 2.6.1（KSP）+ 协程 Flow，本地 SQLite，无后端、无账号
 - 单 Activity + Compose 状态驱动，无第三方图表库（趋势图用 Canvas 画）
-- 测试：JUnit4（领域逻辑）+ Paparazzi（界面快照）
+- 字体：**HarmonyOS Sans SC**（内置 Regular / Bold 两个字重，全 App 覆盖系统字体；授权文件见 `app/src/main/assets/fonts/`）
+- 测试：JUnit4（领域逻辑）+ Paparazzi（界面快照）+ Compose UI 交互测试（真机/模拟器）
 
 ## 构建与运行
 

@@ -43,7 +43,7 @@ class ScreenshotTest {
     val paparazzi = Paparazzi(
         deviceConfig = DeviceConfig.PIXEL_5,
         theme = "Theme.AIAccounting",
-        showSystemUi = true,
+        showSystemUi = false,
     )
 
     private val zone: ZoneId = ZoneId.of("Asia/Shanghai")

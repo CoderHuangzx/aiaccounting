@@ -1,13 +1,17 @@
 package com.aiaccounting.ui.theme
 
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.aiaccounting.R
 
 // ── 品牌色：参考图是「浅蓝底 + 纯白卡片 + 亮蓝强调」 ──────────────────────
 val BrandBlue = Color(0xFF2F6BFF)
@@ -23,6 +27,19 @@ val IncomeGreen = Color(0xFF12B76A)
 val AlertRed = Color(0xFFF04438)
 val HairLine = Color(0xFFEFF2F7)
 val TrackBg = Color(0xFFEDF2FA)
+
+/**
+ * 应用统一字体：HarmonyOS Sans SC。
+ *
+ * 只打包官方未修改的 Regular / Bold 两个字重——字体授权明确禁止修改字形，
+ * 所以不能做子集裁剪。其余字重由字体匹配就近取：
+ * 400/500 → Regular，600/700 → Bold。
+ */
+val AppFontFamily = FontFamily(
+    Font(R.font.harmonyos_sans_regular, FontWeight.Normal),
+    Font(R.font.harmonyos_sans_regular, FontWeight.Medium),
+    Font(R.font.harmonyos_sans_bold, FontWeight.Bold),
+)
 
 private val LightColors = lightColorScheme(
     primary = BrandBlue,
@@ -42,32 +59,48 @@ private val LightColors = lightColorScheme(
     onError = Color.White,
 )
 
-private val AppTypography = Typography(
-    displaySmall = TextStyle(
+private val BaseTypography = Typography()
+
+/** 所有排版角色都挂上品牌字体，避免任何 Material 组件回落到系统字体。 */
+private val AppTypography: Typography = Typography(
+    displayLarge = BaseTypography.displayLarge.copy(fontFamily = AppFontFamily),
+    displayMedium = BaseTypography.displayMedium.copy(fontFamily = AppFontFamily),
+    displaySmall = BaseTypography.displaySmall.copy(
+        fontFamily = AppFontFamily,
         fontSize = 36.sp,
         lineHeight = 42.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-0.5).sp,
     ),
-    headlineMedium = TextStyle(
+    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = AppFontFamily),
+    headlineMedium = BaseTypography.headlineMedium.copy(
+        fontFamily = AppFontFamily,
         fontSize = 22.sp,
         lineHeight = 28.sp,
         fontWeight = FontWeight.Bold,
     ),
-    titleMedium = TextStyle(
+    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = AppFontFamily),
+    titleLarge = BaseTypography.titleLarge.copy(fontFamily = AppFontFamily),
+    titleMedium = BaseTypography.titleMedium.copy(
+        fontFamily = AppFontFamily,
         fontSize = 16.sp,
         lineHeight = 22.sp,
         fontWeight = FontWeight.SemiBold,
     ),
-    bodyMedium = TextStyle(
+    titleSmall = BaseTypography.titleSmall.copy(fontFamily = AppFontFamily),
+    bodyLarge = BaseTypography.bodyLarge.copy(fontFamily = AppFontFamily),
+    bodyMedium = BaseTypography.bodyMedium.copy(
+        fontFamily = AppFontFamily,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        fontWeight = FontWeight.Normal,
     ),
-    labelSmall = TextStyle(
+    bodySmall = BaseTypography.bodySmall.copy(fontFamily = AppFontFamily),
+    labelLarge = BaseTypography.labelLarge.copy(fontFamily = AppFontFamily),
+    labelMedium = BaseTypography.labelMedium.copy(fontFamily = AppFontFamily),
+    labelSmall = BaseTypography.labelSmall.copy(
+        fontFamily = AppFontFamily,
         fontSize = 11.sp,
         lineHeight = 14.sp,
-        fontWeight = FontWeight.Normal,
     ),
 )
 
@@ -76,6 +109,10 @@ fun AIAccountingTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = LightColors,
         typography = AppTypography,
-        content = content,
-    )
+    ) {
+        // 裸 Text 走 LocalTextStyle，这里保证它们也带上品牌字体
+        CompositionLocalProvider(LocalTextStyle provides AppTypography.bodyMedium) {
+            content()
+        }
+    }
 }
