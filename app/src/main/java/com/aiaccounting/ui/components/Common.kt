@@ -1,6 +1,7 @@
 package com.aiaccounting.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -107,6 +108,7 @@ fun SegmentToggle(
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
                     .background(if (selected) BrandBlue else Color.Transparent)
+                    .clickable { onSelect(index) }
                     .padding(horizontal = 20.dp, vertical = 7.dp),
                 contentAlignment = Alignment.Center,
             ) {
