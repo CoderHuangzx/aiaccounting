@@ -1,5 +1,6 @@
 package com.aiaccounting.ui.entry
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,7 +28,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,39 +81,62 @@ fun EntrySheet(
         containerColor = Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp)
-                .padding(bottom = 18.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SegmentToggle(
-                    options = listOf("支出", "收入"),
-                    selectedIndex = if (state.type == TxType.EXPENSE) 0 else 1,
-                    onSelect = { index ->
-                        onType(if (index == 0) TxType.EXPENSE else TxType.INCOME)
-                    },
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = DateLabels.time(System.currentTimeMillis(), ZoneId.systemDefault()),
-                    fontSize = 12.sp,
-                    color = TextFaint,
-                )
-            }
+        EntryContent(
+            state = state,
+            onKey = onKey,
+            onType = onType,
+            onCategory = onCategory,
+            onAccount = onAccount,
+            onNote = onNote,
+            onSave = onSave,
+        )
+    }
+}
 
-            AmountDisplay(state)
-
-            CategoryGrid(state = state, onCategory = onCategory)
-
-            AccountRow(state = state, onAccount = onAccount)
-
-            NoteField(note = state.note, onNote = onNote)
-
-            Keypad(state = state, onKey = onKey, onSave = onSave)
+/** 面板内容。抽出来是为了能在测试里脱离 ModalBottomSheet 单独渲染。 */
+@Composable
+fun EntryContent(
+    state: EntryUiState,
+    onKey: (String) -> Unit,
+    onType: (TxType) -> Unit,
+    onCategory: (Long) -> Unit,
+    onAccount: (Long) -> Unit,
+    onNote: (String) -> Unit,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
+            .padding(bottom = 18.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SegmentToggle(
+                options = listOf("支出", "收入"),
+                selectedIndex = if (state.type == TxType.EXPENSE) 0 else 1,
+                onSelect = { index ->
+                    onType(if (index == 0) TxType.EXPENSE else TxType.INCOME)
+                },
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = DateLabels.time(System.currentTimeMillis(), ZoneId.systemDefault()),
+                fontSize = 12.sp,
+                color = TextFaint,
+            )
         }
+
+        AmountDisplay(state)
+
+        CategoryGrid(state = state, onCategory = onCategory)
+
+        AccountRow(state = state, onAccount = onAccount)
+
+        NoteField(note = state.note, onNote = onNote)
+
+        Keypad(state = state, onKey = onKey, onSave = onSave)
     }
 }
 
@@ -300,11 +329,53 @@ private fun KeyCell(key: String, modifier: Modifier = Modifier, onKey: (String) 
             .clickable { onKey(key) },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = key,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (accent) BrandBlue else TextMain,
+        if (key == "⌫") {
+            BackspaceGlyph(color = BrandBlue)
+        } else {
+            Text(
+                text = key,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (accent) BrandBlue else TextMain,
+            )
+        }
+    }
+}
+
+/** 退格键图标：符号字体里的 ⌫ 字重不一，直接画一个更稳。 */
+@Composable
+private fun BackspaceGlyph(color: Color) {
+    Canvas(modifier = Modifier.size(21.dp)) {
+        val width = size.width
+        val height = size.height
+        val strokeWidth = 1.8.dp.toPx()
+
+        val body = Path().apply {
+            moveTo(width * 0.04f, height * 0.5f)
+            lineTo(width * 0.30f, height * 0.16f)
+            lineTo(width * 0.96f, height * 0.16f)
+            lineTo(width * 0.96f, height * 0.84f)
+            lineTo(width * 0.30f, height * 0.84f)
+            close()
+        }
+        drawPath(
+            path = body,
+            color = color,
+            style = Stroke(width = strokeWidth, join = StrokeJoin.Round),
+        )
+        drawLine(
+            color = color,
+            start = Offset(width * 0.46f, height * 0.38f),
+            end = Offset(width * 0.78f, height * 0.62f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(width * 0.78f, height * 0.38f),
+            end = Offset(width * 0.46f, height * 0.62f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
         )
     }
 }

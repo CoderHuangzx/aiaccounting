@@ -52,7 +52,7 @@ fun HomeScreen(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 84.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "header") {
@@ -206,7 +206,7 @@ private fun DayHeader(section: DaySection) {
         Text(
             text = "支 ${Money.format(section.expenseCents)} 收 ${Money.format(section.incomeCents)}",
             fontSize = 11.sp,
-            color = TextFaint,
+            color = TextSub,
         )
     }
 }

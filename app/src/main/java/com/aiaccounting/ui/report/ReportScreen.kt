@@ -57,7 +57,7 @@ fun ReportScreen(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 84.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(key = "title") {

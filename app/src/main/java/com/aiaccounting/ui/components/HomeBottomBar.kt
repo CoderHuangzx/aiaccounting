@@ -24,7 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -139,18 +141,20 @@ private fun NavGlyph(label: String, selected: Boolean) {
     if (label == "记账") {
         Text(text = "¥", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = color)
     } else {
+        // 三根高低不同的柱子，比饼图更容易读成「报表」
         Canvas(modifier = Modifier.size(17.dp)) {
-            drawArc(
-                color = color,
-                startAngle = -90f,
-                sweepAngle = 280f,
-                useCenter = true,
-            )
-            drawCircle(
-                color = Color.White,
-                radius = size.minDimension * 0.19f,
-                center = Offset(size.width * 0.58f, size.height * 0.60f),
-            )
+            val barWidth = size.width * 0.22f
+            val ratios = listOf(0.42f, 0.78f, 0.58f)
+            val gap = (size.width - barWidth * ratios.size) / (ratios.size - 1)
+            ratios.forEachIndexed { index, ratio ->
+                val height = size.height * ratio
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(index * (barWidth + gap), size.height - height),
+                    size = Size(barWidth, height),
+                    cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+                )
+            }
         }
     }
 }
