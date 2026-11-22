@@ -81,6 +81,7 @@ fun AppRoot() {
             onCategory = entryViewModel::onCategory,
             onAccount = entryViewModel::onAccount,
             onNote = entryViewModel::onNote,
+            onDateChange = entryViewModel::onDateTimeChange,
             onSave = entryViewModel::save,
             onDismiss = {
                 showEntry = false

@@ -29,4 +29,10 @@ object DateLabels {
         today.minusDays(1) -> "昨天 ${weekday(date)}"
         else -> "${day(date)} ${weekday(date)}"
     }
+
+    /** 记一笔面板上的日期胶囊文案：11月22日 23:53（用绝对日期，截图与快照才稳定） */
+    fun chipLabel(millis: Long, zone: ZoneId): String {
+        val date = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+        return "${date.monthValue}月${date.dayOfMonth}日 ${time(millis, zone)}"
+    }
 }

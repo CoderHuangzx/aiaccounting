@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -18,10 +19,13 @@ import com.aiaccounting.ui.entry.EntryUiState
 import com.aiaccounting.ui.theme.AIAccountingTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * 记一笔面板的交互测试，跑在真机/模拟器上。
@@ -191,5 +195,80 @@ class EntryContentInteractionTest {
 
         composeRule.onNodeWithText("完成").performClick()
         assertFalse(saved)
+    }
+
+    @Test
+    fun 点击日期胶囊打开选择器并能确认时间() {
+        val zone = ZoneId.of("Asia/Shanghai")
+        val fixed = LocalDate.of(2026, 11, 20).atTime(9, 30)
+            .atZone(zone).toInstant().toEpochMilli()
+        var picked: Long? = null
+
+        composeRule.setContent {
+            AIAccountingTheme {
+                EntryContent(
+                    state = EntryUiState(
+                        type = TxType.EXPENSE,
+                        categories = expenseCategories,
+                        categoryId = 1,
+                        accounts = accounts,
+                        accountId = 1,
+                        occurredAt = fixed,
+                    ),
+                    onKey = {},
+                    onType = {},
+                    onCategory = {},
+                    onAccount = {},
+                    onNote = {},
+                    onDateChange = { picked = it },
+                    onSave = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("11月20日 09:30").assertIsDisplayed()
+        composeRule.onNodeWithTag("entryDateChip").performClick()
+        composeRule.onNodeWithText("编辑日期").assertIsDisplayed()
+
+        // 不改动直接确认，应当回传同一个时间
+        composeRule.onNodeWithText("确认").performClick()
+        assertEquals(fixed, picked)
+        composeRule.onNodeWithText("编辑日期").assertDoesNotExist()
+    }
+
+    @Test
+    fun 日期选择器取消后不改动时间() {
+        val zone = ZoneId.of("Asia/Shanghai")
+        val fixed = LocalDate.of(2026, 11, 20).atTime(9, 30)
+            .atZone(zone).toInstant().toEpochMilli()
+        var picked: Long? = null
+
+        composeRule.setContent {
+            AIAccountingTheme {
+                EntryContent(
+                    state = EntryUiState(
+                        type = TxType.EXPENSE,
+                        categories = expenseCategories,
+                        categoryId = 1,
+                        accounts = accounts,
+                        accountId = 1,
+                        occurredAt = fixed,
+                    ),
+                    onKey = {},
+                    onType = {},
+                    onCategory = {},
+                    onAccount = {},
+                    onNote = {},
+                    onDateChange = { picked = it },
+                    onSave = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("entryDateChip").performClick()
+        composeRule.onNodeWithText("取消").performClick()
+
+        composeRule.onNodeWithText("编辑日期").assertDoesNotExist()
+        assertNull(picked)
     }
 }

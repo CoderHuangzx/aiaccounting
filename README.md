@@ -11,9 +11,11 @@
 | --- | --- | --- |
 | ![首页](docs/screenshots/home.png) | ![报表](docs/screenshots/report_month.png) | ![记一笔](docs/screenshots/entry_sheet.png) |
 
-空状态：
+选时间（记一笔里的「日期胶囊」）：
 
-![空状态](docs/screenshots/home_empty.png)
+| 日期时间选择器 | 空状态 |
+| --- | --- |
+| ![选时间](docs/screenshots/date_picker.png) | ![空状态](docs/screenshots/home_empty.png) |
 
 > 以上截图由 Paparazzi 在 JVM 上用 layoutlib 真实渲染，不是设计稿。
 
@@ -21,8 +23,8 @@
 
 - Kotlin 2.0.21 + Jetpack Compose（Material 3，自建蓝白主题）
 - Room 2.6.1（KSP）+ 协程 Flow，本地 SQLite，无后端、无账号
-- 单 Activity + Compose 状态驱动，无第三方图表库（趋势图用 Canvas 画）
-- 字体：**HarmonyOS Sans SC**（内置 Regular / Bold 两个字重，全 App 覆盖系统字体；授权文件见 `app/src/main/assets/fonts/`）
+- 单 Activity + Compose 状态驱动，无第三方图表库（趋势图用 Canvas 画），滚轮选择器也是自己实现
+- 字体：**HarmonyOS Sans SC**（内置 Regular，全 App 覆盖系统字体；加粗由系统合成，授权文件见 `app/src/main/assets/fonts/`）
 - 测试：JUnit4（领域逻辑）+ Paparazzi（界面快照）+ Compose UI 交互测试（真机/模拟器）
 
 ## 构建与运行
@@ -63,20 +65,21 @@ Windows 上要先装加速驱动（`silent_install.bat`，管理员权限），�
 ```
 app/src/main/java/com/aiaccounting/
 ├── core/           金额(分)格式化、日期文案
-├── domain/         纯逻辑：金额输入状态机、去重指纹、按天分组、报表聚合
+├── domain/         纯逻辑：金额输入状态机、去重指纹、按天分组、报表聚合、日期草稿
 ├── data/           Room 实体/DAO/数据库、仓库、种子分类
 ├── ui/
 │   ├── theme/      颜色与排版
-│   ├── components/ 卡片、胶囊、底部导航、趋势柱状图
+│   ├── components/ 卡片、胶囊、底部导航、趋势柱状图、滚轮选择器
 │   ├── home/       首页：渐变头卡 + 按日流水
-│   ├── entry/      记一笔：自建键盘 + 分类宫格 + 表达式（12+8）
+│   ├── entry/      记一笔：自建键盘 + 分类宫格 + 表达式（12+8）+ 日期时间选择
 │   └── report/     报表：周/月/年 + 趋势 + 分类占比
 └── AccountingApp / MainActivity
 ```
 
 ## 已经能做什么
 
-- 手动记一笔：支出/收入、10 个支出分类、4 个账户、备注、日期与金额（支持 `12+8` 这类表达式）
+- 手动记一笔：支出/收入、10 个支出分类、4 个账户、备注、金额（支持 `12+8` 这类表达式）
+- **记账时间可选**：点日期胶囊打开年/月/日 + 时:分 滚轮，确认后按所选时间入账（补记昨天、上周的账都能落到正确的那一天）
 - 首页按天分组展示流水，显示今日支出、本月支出、本月收入
 - 报表支持周/月/年切换与前后翻页，含支出趋势、分类占比、与上期比较
 - 三路来源的数据模型已经预留：`TransactionEntity` 有 `source`（手动/通知/导入）、`dedupKey`、`status`，`AccountingRepository.addCapturedTransaction()` 已实现「同指纹不重复入库」

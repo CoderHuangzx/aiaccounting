@@ -29,16 +29,13 @@ val HairLine = Color(0xFFEFF2F7)
 val TrackBg = Color(0xFFEDF2FA)
 
 /**
- * 应用统一字体：HarmonyOS Sans SC。
+ * 应用统一字体：HarmonyOS Sans SC（只打包 Regular 一个字重）。
  *
- * 只打包官方未修改的 Regular / Bold 两个字重——字体授权明确禁止修改字形，
- * 所以不能做子集裁剪。其余字重由字体匹配就近取：
- * 400/500 → Regular，600/700 → Bold。
+ * 字体授权明确禁止修改字形，所以不能做子集裁剪；为控制包体只带 Regular，
+ * 标题/金额需要的粗体由系统的合成加粗（FontSynthesis）提供。
  */
 val AppFontFamily = FontFamily(
     Font(R.font.harmonyos_sans_regular, FontWeight.Normal),
-    Font(R.font.harmonyos_sans_regular, FontWeight.Medium),
-    Font(R.font.harmonyos_sans_bold, FontWeight.Bold),
 )
 
 private val LightColors = lightColorScheme(

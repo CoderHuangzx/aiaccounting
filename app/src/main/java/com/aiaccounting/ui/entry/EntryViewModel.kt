@@ -23,6 +23,7 @@ data class EntryUiState(
     val categoryId: Long? = null,
     val accountId: Long? = null,
     val note: String = "",
+    val occurredAt: Long = System.currentTimeMillis(),
     val categories: List<CategoryEntity> = emptyList(),
     val accounts: List<AccountEntity> = emptyList(),
     val saving: Boolean = false,
@@ -63,6 +64,9 @@ class EntryViewModel(private val repository: AccountingRepository) : ViewModel()
 
     fun onNote(note: String) = _state.update { it.copy(note = note) }
 
+    /** 用户在日期选择器里确认了新的记账时间。 */
+    fun onDateTimeChange(millis: Long) = _state.update { it.copy(occurredAt = millis) }
+
     fun save() {
         val current = _state.value
         val amount = current.amountCents ?: return
@@ -77,6 +81,7 @@ class EntryViewModel(private val repository: AccountingRepository) : ViewModel()
                 amountCents = amount,
                 categoryId = categoryId,
                 accountId = accountId,
+                occurredAt = current.occurredAt,
                 note = current.note.takeIf { text -> text.isNotBlank() },
             )
             _state.update { it.copy(saving = false, saved = true) }

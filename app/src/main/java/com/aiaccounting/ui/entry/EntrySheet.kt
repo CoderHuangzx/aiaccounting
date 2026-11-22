@@ -25,15 +25,22 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,6 +77,7 @@ fun EntrySheet(
     onCategory: (Long) -> Unit,
     onAccount: (Long) -> Unit,
     onNote: (String) -> Unit,
+    onDateChange: (Long) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -88,6 +96,7 @@ fun EntrySheet(
             onCategory = onCategory,
             onAccount = onAccount,
             onNote = onNote,
+            onDateChange = onDateChange,
             onSave = onSave,
         )
     }
@@ -102,41 +111,118 @@ fun EntryContent(
     onCategory: (Long) -> Unit,
     onAccount: (Long) -> Unit,
     onNote: (String) -> Unit,
+    onDateChange: (Long) -> Unit = {},
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp)
-            .padding(bottom = 18.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SegmentToggle(
-                options = listOf("支出", "收入"),
-                selectedIndex = if (state.type == TxType.EXPENSE) 0 else 1,
-                onSelect = { index ->
-                    onType(if (index == 0) TxType.EXPENSE else TxType.INCOME)
-                },
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = DateLabels.time(System.currentTimeMillis(), ZoneId.systemDefault()),
-                fontSize = 12.sp,
-                color = TextFaint,
-            )
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 18.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SegmentToggle(
+                    options = listOf("支出", "收入"),
+                    selectedIndex = if (state.type == TxType.EXPENSE) 0 else 1,
+                    onSelect = { index ->
+                        onType(if (index == 0) TxType.EXPENSE else TxType.INCOME)
+                    },
+                )
+                Spacer(Modifier.weight(1f))
+                DateChip(
+                    millis = state.occurredAt,
+                    onClick = { showDatePicker = true },
+                )
+            }
+
+            AmountDisplay(state)
+
+            CategoryGrid(state = state, onCategory = onCategory)
+
+            AccountRow(state = state, onAccount = onAccount)
+
+            NoteField(note = state.note, onNote = onNote)
+
+            Keypad(state = state, onKey = onKey, onSave = onSave)
         }
 
-        AmountDisplay(state)
+        if (showDatePicker) {
+            PickerScrim(
+                onDismiss = { showDatePicker = false },
+                modifier = Modifier.matchParentSize(),
+            )
+            DatePickerPanel(
+                initialMillis = state.occurredAt,
+                onConfirm = { millis ->
+                    onDateChange(millis)
+                    showDatePicker = false
+                },
+                onDismiss = { showDatePicker = false },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+    }
+}
 
-        CategoryGrid(state = state, onCategory = onCategory)
+/** 记账时间入口：显示当前选中的日期时间，点开滚轮选择器。 */
+@Composable
+private fun DateChip(millis: Long, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .testTag("entryDateChip")
+            .clip(RoundedCornerShape(50))
+            .background(BrandBlueSofter)
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CalendarGlyph(color = BrandBlue)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = DateLabels.chipLabel(millis, ZoneId.systemDefault()),
+            fontSize = 12.sp,
+            color = BrandBlueDeep,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
 
-        AccountRow(state = state, onAccount = onAccount)
-
-        NoteField(note = state.note, onNote = onNote)
-
-        Keypad(state = state, onKey = onKey, onSave = onSave)
+@Composable
+private fun CalendarGlyph(color: Color) {
+    Canvas(modifier = Modifier.size(13.dp)) {
+        val stroke = 1.4.dp.toPx()
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(0f, size.height * 0.16f),
+            size = Size(size.width, size.height * 0.8f),
+            cornerRadius = CornerRadius(size.width * 0.2f),
+            style = Stroke(width = stroke),
+        )
+        drawLine(
+            color = color,
+            start = Offset(0f, size.height * 0.4f),
+            end = Offset(size.width, size.height * 0.4f),
+            strokeWidth = stroke,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.3f, 0f),
+            end = Offset(size.width * 0.3f, size.height * 0.24f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.7f, 0f),
+            end = Offset(size.width * 0.7f, size.height * 0.24f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
     }
 }
 

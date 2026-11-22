@@ -10,6 +10,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
 import com.aiaccounting.data.local.AccountEntity
 import com.aiaccounting.data.local.CategoryEntity
 import com.aiaccounting.domain.HomeGrouper
@@ -22,6 +23,7 @@ import com.aiaccounting.domain.TxType
 import com.aiaccounting.ui.components.HomeBottomBar
 import com.aiaccounting.ui.entry.EntryContent
 import com.aiaccounting.ui.entry.EntryUiState
+import com.aiaccounting.ui.entry.DatePickerPanel
 import com.aiaccounting.ui.home.HomeScreen
 import com.aiaccounting.ui.home.HomeUiState
 import com.aiaccounting.ui.report.ReportScreen
@@ -157,8 +159,7 @@ class ScreenshotTest {
     }
 
     @Test
-    fun entrySheet() {
-        val categories = listOf(
+    fun entrySheet() {        val categories = listOf(
             CategoryEntity(id = 1, name = "餐饮", emoji = "🍜", kind = "EXPENSE", sortOrder = 0),
             CategoryEntity(id = 2, name = "交通", emoji = "🚌", kind = "EXPENSE", sortOrder = 1),
             CategoryEntity(id = 3, name = "购物", emoji = "🛍️", kind = "EXPENSE", sortOrder = 2),
@@ -182,6 +183,9 @@ class ScreenshotTest {
             amountCents = 2_000,
             categoryId = 1,
             accountId = 1,
+            // 固定时间，否则日期胶囊文案会随运行时刻变化，快照永远对不上
+            occurredAt = LocalDate.of(2026, 11, 20).atTime(9, 30)
+                .atZone(zone).toInstant().toEpochMilli(),
             categories = categories,
             accounts = accounts,
         )
@@ -197,6 +201,27 @@ class ScreenshotTest {
                         onAccount = {},
                         onNote = {},
                         onSave = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun datePicker() {
+        val picked = LocalDate.of(2026, 11, 20).atTime(9, 30)
+            .atZone(zone).toInstant().toEpochMilli()
+
+        paparazzi.snapshot(name = "date_picker") {
+            AIAccountingTheme {
+                Box(Modifier.fillMaxSize().background(PageBg)) {
+                    DatePickerPanel(
+                        initialMillis = picked,
+                        onConfirm = {},
+                        onDismiss = {},
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        today = today,
+                        zone = zone,
                     )
                 }
             }
