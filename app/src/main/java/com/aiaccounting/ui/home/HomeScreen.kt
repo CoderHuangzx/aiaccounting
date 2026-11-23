@@ -76,55 +76,59 @@ fun HomeScreen(
 ) {
     var hideAmounts by rememberSaveable { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 84.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item(key = "topbar") {
-            HomeTopBar(onSettingsClick = onSettingsClick)
-        }
+    Column(modifier = modifier.fillMaxSize()) {
+        // 顶栏固定在列表上方，滚动时始终可见
+        HomeTopBar(
+            onSettingsClick = onSettingsClick,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
 
-        item(key = "header") {
-            HomeHeader(
-                summary = state.summary,
-                hideAmounts = hideAmounts,
-                onToggleAmounts = { hideAmounts = !hideAmounts },
-            )
-        }
-
-        item(key = "search") {
-            SearchBar(query = state.query, onQueryChange = onQueryChange)
-        }
-
-        if (pendingCount > 0) {
-            item(key = "pending") {
-                PendingBanner(count = pendingCount, onClick = onPendingClick)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 84.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item(key = "header") {
+                HomeHeader(
+                    summary = state.summary,
+                    hideAmounts = hideAmounts,
+                    onToggleAmounts = { hideAmounts = !hideAmounts },
+                )
             }
-        }
 
-        if (state.sections.isEmpty()) {
-            item(key = "empty") {
-                SoftCard(modifier = Modifier.fillMaxWidth()) {
-                    EmptyBlock(
-                        emoji = if (state.isSearching) "🔍" else "🧾",
-                        title = when {
-                            !state.loaded -> "正在加载…"
-                            state.isSearching -> "没有匹配的记录"
-                            else -> "还没有记录"
-                        },
-                        hint = if (state.isSearching) "换个关键词试试" else "点下面的 + 记第一笔",
-                    )
+            item(key = "search") {
+                SearchBar(query = state.query, onQueryChange = onQueryChange)
+            }
+
+            if (pendingCount > 0) {
+                item(key = "pending") {
+                    PendingBanner(count = pendingCount, onClick = onPendingClick)
                 }
             }
-        } else {
-            state.sections.forEach { section ->
-                // 一天一张卡，卡内用细分割线分行（参考图的排版）
-                item(key = "day-${section.date}") {
-                    DayHeader(section)
+
+            if (state.sections.isEmpty()) {
+                item(key = "empty") {
+                    SoftCard(modifier = Modifier.fillMaxWidth()) {
+                        EmptyBlock(
+                            emoji = if (state.isSearching) "🔍" else "🧾",
+                            title = when {
+                                !state.loaded -> "正在加载…"
+                                state.isSearching -> "没有匹配的记录"
+                                else -> "还没有记录"
+                            },
+                            hint = if (state.isSearching) "换个关键词试试" else "点下面的 + 记第一笔",
+                        )
+                    }
                 }
-                item(key = "card-${section.date}") {
-                    DayCard(section = section, onTxClick = onTxClick)
+            } else {
+                state.sections.forEach { section ->
+                    // 一天一张卡，卡内用细分割线分行（参考图的排版）
+                    item(key = "day-${section.date}") {
+                        DayHeader(section)
+                    }
+                    item(key = "card-${section.date}") {
+                        DayCard(section = section, onTxClick = onTxClick)
+                    }
                 }
             }
         }
@@ -132,11 +136,14 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeTopBar(onSettingsClick: () -> Unit) {
+private fun HomeTopBar(
+    onSettingsClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 2.dp),
+            .padding(top = 6.dp, bottom = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
