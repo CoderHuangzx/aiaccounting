@@ -26,8 +26,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aiaccounting.AccountingApp
-import com.aiaccounting.bubble.BubbleSettingsStore
-import com.aiaccounting.bubble.FloatingBubbleService
 import com.aiaccounting.data.AccountingRepository
 import com.aiaccounting.data.webdav.WebDavClient
 import com.aiaccounting.data.webdav.WebDavConfig
@@ -35,6 +33,7 @@ import com.aiaccounting.data.webdav.WebDavSettingsStore
 import com.aiaccounting.domain.AlipayBillParser
 import com.aiaccounting.domain.WeChatBillParser
 import com.aiaccounting.domain.XlsxReader
+import com.aiaccounting.overlay.OverlayAnchorService
 import com.aiaccounting.ui.backup.WebDavSheet
 import com.aiaccounting.ui.settings.CaptureLogSheet
 import com.aiaccounting.ui.settings.SettingsScreen
@@ -102,47 +101,12 @@ fun AppRoot(
     var showWebDav by remember { mutableStateOf(false) }
     var webDavBusy by remember { mutableStateOf(false) }
 
-    // 悬浮球快捷记账
-    val bubbleStore = remember { BubbleSettingsStore(context) }
-    var bubbleEnabled by remember { mutableStateOf(bubbleStore.isEnabled()) }
-
-    val toggleBubble: () -> Unit = {
-        when {
-            !Settings.canDrawOverlays(context) -> {
-                backupMessage = "先开「显示在其他应用上层」，回来再点一次"
-                runCatching {
-                    context.startActivity(
-                        Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            android.net.Uri.parse("package:${context.packageName}"),
-                        ),
-                    )
-                }
-            }
-
-            bubbleEnabled -> {
-                context.stopService(Intent(context, FloatingBubbleService::class.java))
-                bubbleStore.setEnabled(false)
-                bubbleEnabled = false
-                backupMessage = "悬浮球已关闭"
-            }
-
-            else -> {
-                runCatching {
-                    context.startForegroundService(Intent(context, FloatingBubbleService::class.java))
-                }
-                bubbleStore.setEnabled(true)
-                bubbleEnabled = true
-                backupMessage = "悬浮球已开启，点小球就能记账"
-            }
-        }
-    }
-
-    // App 启动时如果之前是开着的，重新拉起服务
+    // 保持「正在其他应用的上层显示内容」这个状态：只挂一个 1×1 隐形窗口，不画任何东西。
+    // 没授予悬浮窗权限时静默跳过，不影响其他功能。
     LaunchedEffect(Unit) {
-        if (bubbleStore.isEnabled() && Settings.canDrawOverlays(context)) {
+        if (Settings.canDrawOverlays(context)) {
             runCatching {
-                context.startForegroundService(Intent(context, FloatingBubbleService::class.java))
+                context.startService(Intent(context, OverlayAnchorService::class.java))
             }
         }
     }
@@ -413,8 +377,6 @@ fun AppRoot(
             },
             onNotificationPermission = openNotificationSettings,
             onCaptureLog = { showCaptureLog = true },
-            bubbleEnabled = bubbleEnabled,
-            onToggleBubble = toggleBubble,
             modifier = Modifier.fillMaxSize(),
         )
     }

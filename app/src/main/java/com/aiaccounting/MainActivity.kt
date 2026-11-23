@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
-import com.aiaccounting.bubble.FloatingBubbleService
 import com.aiaccounting.ui.AppRoot
 import com.aiaccounting.ui.theme.AIAccountingTheme
 
@@ -36,16 +35,6 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_OPEN_ENTRY, false)) {
             openEntryRequest.value = true
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        FloatingBubbleService.setVisible(false)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        FloatingBubbleService.setVisible(true)
     }
 
     companion object {

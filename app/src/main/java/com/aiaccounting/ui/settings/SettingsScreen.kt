@@ -80,8 +80,6 @@ fun SettingsScreen(
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
-    bubbleEnabled: Boolean,
-    onToggleBubble: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var page by rememberSaveable { mutableStateOf(SettingsPage.MAIN) }
@@ -113,12 +111,10 @@ fun SettingsScreen(
             SettingsPage.AUTO_CAPTURE -> AutoCapturePage(
                 pendingCount = pendingCount,
                 message = message,
-                bubbleEnabled = bubbleEnabled,
                 onBack = ::goBack,
                 onInbox = onInbox,
                 onNotificationPermission = onNotificationPermission,
                 onCaptureLog = onCaptureLog,
-                onToggleBubble = onToggleBubble,
             )
 
             SettingsPage.IMPORT -> ImportPage(
@@ -231,12 +227,10 @@ private fun MainPage(
 private fun AutoCapturePage(
     pendingCount: Int,
     message: String?,
-    bubbleEnabled: Boolean,
     onBack: () -> Unit,
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
-    onToggleBubble: () -> Unit,
 ) {
     PageScaffold(title = "自动记账", onBack = onBack) {
         Text(
@@ -265,21 +259,6 @@ private fun AutoCapturePage(
                 title = "捕捉日志",
                 subtitle = "看看哪些通知被记了、哪些没匹配上",
                 onClick = onCaptureLog,
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        SettingsCard {
-            SettingsRow(
-                title = "快捷记账悬浮球",
-                subtitle = if (bubbleEnabled) {
-                    "已开启：在任何 App 上点小球就能记一笔"
-                } else {
-                    "显示在其他应用上层，漏抓时一键补记"
-                },
-                value = if (bubbleEnabled) "已开启" else "已关闭",
-                onClick = onToggleBubble,
             )
         }
 
