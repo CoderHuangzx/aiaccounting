@@ -70,6 +70,34 @@ class AccountingRepository(
         ),
     )
 
+    /** 编辑已有记录：只改用户可改的字段，来源与去重指纹保持原样。 */
+    suspend fun updateTransaction(
+        id: Long,
+        type: TxType,
+        amountCents: Long,
+        categoryId: Long,
+        accountId: Long,
+        occurredAt: Long,
+        merchant: String? = null,
+        note: String? = null,
+    ) {
+        val existing = transactionDao.findById(id) ?: return
+        transactionDao.update(
+            existing.copy(
+                type = type.name,
+                amountCents = amountCents,
+                categoryId = categoryId,
+                accountId = accountId,
+                occurredAt = occurredAt,
+                merchant = merchant,
+                note = note,
+                updatedAt = now(),
+            ),
+        )
+    }
+
+    suspend fun deleteTransaction(id: Long) = transactionDao.deleteById(id)
+
     /**
      * 自动捕捉（通知 / 导入）入库入口。
      * 命中已有指纹时直接返回已有记录的 id，不重复插入——这是三路来源收敛的关键。

@@ -2,6 +2,7 @@ package com.aiaccounting.ui.home
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +50,7 @@ import java.time.ZoneId
 fun HomeScreen(
     state: HomeUiState,
     modifier: Modifier = Modifier,
+    onTxClick: (Tx) -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -76,7 +78,7 @@ fun HomeScreen(
                     DayHeader(section)
                 }
                 items(items = section.items, key = { it.id }) { tx ->
-                    TxRow(tx)
+                    TxRow(tx = tx, onClick = { onTxClick(tx) })
                 }
             }
         }
@@ -212,10 +214,12 @@ private fun DayHeader(section: DaySection) {
 }
 
 @Composable
-private fun TxRow(tx: Tx) {
+private fun TxRow(tx: Tx, onClick: () -> Unit = {}) {
     val subtitle = buildSubtitle(tx)
     SoftCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
         elevation = 3.dp,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
