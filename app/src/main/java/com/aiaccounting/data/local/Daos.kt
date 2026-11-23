@@ -33,6 +33,9 @@ interface TransactionDao {
 
     @Query("SELECT COUNT(*) FROM transactions")
     suspend fun count(): Int
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -46,6 +49,9 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories WHERE kind = :kind ORDER BY sortOrder, id")
     suspend fun byKind(kind: String): List<CategoryEntity>
+
+    @Query("SELECT * FROM categories ORDER BY sortOrder, id")
+    suspend fun all(): List<CategoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(items: List<CategoryEntity>)

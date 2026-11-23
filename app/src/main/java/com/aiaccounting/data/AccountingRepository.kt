@@ -4,6 +4,7 @@ import com.aiaccounting.data.local.AccountEntity
 import com.aiaccounting.data.local.AppDatabase
 import com.aiaccounting.data.local.CategoryEntity
 import com.aiaccounting.data.local.TransactionEntity
+import com.aiaccounting.domain.BackupCsv
 import com.aiaccounting.domain.DedupKey
 import com.aiaccounting.domain.Tx
 import com.aiaccounting.domain.TxSource
@@ -11,6 +12,7 @@ import com.aiaccounting.domain.TxType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import androidx.room.withTransaction
 
 class AccountingRepository(
     private val db: AppDatabase,
@@ -135,6 +137,67 @@ class AccountingRepository(
     }
 
     suspend fun transactionCount(): Int = transactionDao.count()
+
+    /** 导出全部流水为 CSV 文本（用分类名/账户名，换设备也能恢复）。 */
+    suspend fun exportBackupCsv(): String {
+        val categories = categoryDao.all().associateBy { it.id }
+        val accounts = accountDao.all().associateBy { it.id }
+        val rows = transactionDao.all().map { entity ->
+            BackupCsv.Row(
+                occurredAt = entity.occurredAt,
+                type = runCatching { TxType.valueOf(entity.type) }.getOrDefault(TxType.EXPENSE),
+                amountCents = entity.amountCents,
+                category = categories[entity.categoryId]?.name ?: "其他",
+                account = accounts[entity.accountId]?.name ?: "现金",
+                merchant = entity.merchant,
+                note = entity.note,
+                source = runCatching { TxSource.valueOf(entity.source) }.getOrDefault(TxSource.MANUAL),
+                dedupKey = entity.dedupKey,
+            )
+        }
+        return BackupCsv.encode(rows)
+    }
+
+    /**
+     * 用备份文件覆盖当前流水（原子操作：先清空再写入）。
+     * @return 写入的条数
+     */
+    suspend fun importBackupCsv(text: String): Int {
+        val rows = BackupCsv.decode(text)
+        val categories = categoryDao.all()
+        val accounts = accountDao.all()
+
+        fun resolveCategory(name: String, type: TxType): Long? =
+            categories.firstOrNull { it.name == name && it.kind == type.name }?.id
+                ?: categories.firstOrNull { it.name == "其他" && it.kind == type.name }?.id
+                ?: categories.firstOrNull { it.kind == type.name }?.id
+
+        fun resolveAccount(name: String): Long? =
+            accounts.firstOrNull { it.name == name }?.id ?: accounts.firstOrNull()?.id
+
+        db.withTransaction {
+            transactionDao.deleteAll()
+            rows.forEach { row ->
+                val categoryId = resolveCategory(row.category, row.type) ?: return@forEach
+                val accountId = resolveAccount(row.account) ?: return@forEach
+                transactionDao.insert(
+                    TransactionEntity(
+                        type = row.type.name,
+                        amountCents = row.amountCents,
+                        occurredAt = row.occurredAt,
+                        categoryId = categoryId,
+                        accountId = accountId,
+                        merchant = row.merchant,
+                        note = row.note,
+                        source = row.source.name,
+                        dedupKey = row.dedupKey,
+                        status = "CONFIRMED",
+                    ),
+                )
+            }
+        }
+        return rows.size
+    }
 
     private fun TransactionEntity.toTx(category: CategoryEntity?, account: AccountEntity?): Tx = Tx(
         id = id,

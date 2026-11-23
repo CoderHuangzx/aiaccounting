@@ -51,6 +51,7 @@ fun HomeScreen(
     state: HomeUiState,
     modifier: Modifier = Modifier,
     onTxClick: (Tx) -> Unit = {},
+    onBackupClick: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -58,7 +59,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "header") {
-            HomeHeader(summary = state.summary)
+            HomeHeader(summary = state.summary, onBackupClick = onBackupClick)
             Spacer(Modifier.height(6.dp))
         }
 
@@ -86,7 +87,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(summary: HomeSummary) {
+private fun HomeHeader(summary: HomeSummary, onBackupClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -128,6 +129,20 @@ private fun HomeHeader(summary: HomeSummary) {
                 ) {
                     Text(
                         text = summary.monthLabel.ifBlank { "本月" },
+                        color = Color.White,
+                        fontSize = 11.sp,
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .clickable { onBackupClick() }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        text = "备份",
                         color = Color.White,
                         fontSize = 11.sp,
                     )

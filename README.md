@@ -72,6 +72,7 @@ app/src/main/java/com/aiaccounting/
 │   ├── components/ 卡片、胶囊、底部导航、趋势柱状图、滚轮选择器
 │   ├── home/       首页：渐变头卡 + 按日流水
 │   ├── entry/      记一笔：自建键盘 + 分类宫格 + 表达式（12+8）+ 日期时间选择
+│   ├── backup/     备份与恢复面板
 │   └── report/     报表：周/月/年 + 趋势 + 分类占比
 └── AccountingApp / MainActivity
 ```
@@ -83,6 +84,7 @@ app/src/main/java/com/aiaccounting/
 - 首页按天分组展示流水，显示今日支出、本月支出、本月收入
 - 报表支持周/月/年切换与前后翻页，含支出趋势、分类占比、与上期比较
 - **点任意一条流水即可编辑**（金额/分类/账户/备注/时间）**或删除**，编辑不会破坏来源与去重指纹
+- **备份与恢复**：首页右上角「备份」可把全部流水导出成 CSV（Excel 能直接打开），也能从 CSV 覆盖恢复；走系统文件选择器，不需要存储权限
 - 三路来源的数据模型已经预留：`TransactionEntity` 有 `source`（手动/通知/导入）、`dedupKey`、`status`，`AccountingRepository.addCapturedTransaction()` 已实现「同指纹不重复入库」
 
 ## 已知限制
@@ -91,7 +93,7 @@ app/src/main/java/com/aiaccounting/
 
 ## 下一步
 
-1. 导出/导入备份（CSV），再叠一层 WebDAV（坚果云）自动备份
+1. WebDAV（坚果云）自动备份：把导出的 CSV 定时推到网盘，多设备可用
 2. 通知监听 spike（微信/支付宝），实测真实命中率——见 MVP 文档 5.1，这是排期关键
 3. 待确认收件箱（PENDING 记录的一键确认）
 4. 支付宝/微信账单文件导入 + 对账合并
