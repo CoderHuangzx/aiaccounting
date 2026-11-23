@@ -13,8 +13,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CategoryEntity::class,
         TransactionEntity::class,
         RawCaptureEntity::class,
+        MerchantRuleEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +27,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
 
     abstract fun rawCaptureDao(): RawCaptureDao
+
+    abstract fun merchantRuleDao(): MerchantRuleDao
 
     companion object {
         private const val NAME = "aiaccounting.db"
@@ -50,6 +53,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 → v3：新增「商户 → 分类」学习表。 */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `merchant_rules` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `pattern` TEXT NOT NULL,
+                        `categoryId` INTEGER NOT NULL,
+                        `hitCount` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_merchant_rules_pattern` ON `merchant_rules` (`pattern`)")
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -60,7 +81,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     NAME,
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }

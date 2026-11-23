@@ -1,5 +1,7 @@
 package com.aiaccounting.ui.backup
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -49,6 +52,7 @@ import com.aiaccounting.ui.theme.TextSub
 /**
  * WebDAV 云备份设置：填服务器地址 / 账号 / 应用密码，可开自动备份，也能手动上传与恢复。
  */
+private const val DEFAULT_JIANGUOYUN_URL = "https://dav.jianguoyun.com/dav/"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WebDavSheet(
@@ -61,7 +65,10 @@ fun WebDavSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var url by remember(initial.baseUrl) { mutableStateOf(initial.baseUrl) }
+    val context = LocalContext.current
+    var url by remember(initial.baseUrl) {
+        mutableStateOf(initial.baseUrl.ifBlank { DEFAULT_JIANGUOYUN_URL })
+    }
     var user by remember(initial.username) { mutableStateOf(initial.username) }
     var password by remember(initial.password) { mutableStateOf(initial.password) }
     var auto by remember(initial.autoBackup) { mutableStateOf(initial.autoBackup) }
@@ -92,20 +99,53 @@ fun WebDavSheet(
                 fontWeight = FontWeight.SemiBold,
                 color = TextMain,
             )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "坚果云可以：设置 → 安全选项 → 添加应用密码，用生成的那个密码填在下面。",
-                fontSize = 12.sp,
-                color = TextSub,
-                lineHeight = 18.sp,
-            )
+            Spacer(Modifier.height(10.dp))
 
-            Spacer(Modifier.height(16.dp))
+            // 一步步照着填就行，不用去查文档
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BrandBlueSofter)
+                    .padding(14.dp),
+            ) {
+                Text(
+                    text = "坚果云怎么填（三步）",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = BrandBlueDeep,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "1. 网页登录坚果云 → 右上角头像 → 「账户信息」→「安全选项」\n" +
+                        "2. 找到「第三方应用管理 / 添加应用密码」，起个名字（比如 AI记账）\n" +
+                        "3. 把生成的密码一次性复制到这里；账号填你的坚果云注册邮箱",
+                    fontSize = 11.sp,
+                    color = TextSub,
+                    lineHeight = 17.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "打开坚果云网页 →",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = BrandBlue,
+                    modifier = Modifier.clickable {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://www.jianguoyun.com/")),
+                            )
+                        }
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
 
             Field(
-                label = "服务器地址",
+                label = "服务器地址（坚果云固定这个）",
                 value = url,
-                placeholder = "https://dav.jianguoyun.com/dav/",
+                placeholder = DEFAULT_JIANGUOYUN_URL,
                 onValueChange = { url = it },
             )
             Spacer(Modifier.height(10.dp))

@@ -54,7 +54,6 @@ interface TransactionDao {
 
 @Dao
 interface RawCaptureDao {
-
     @Insert
     suspend fun insert(entity: RawCaptureEntity): Long
 
@@ -66,6 +65,25 @@ interface RawCaptureDao {
 
     @Query("DELETE FROM raw_captures")
     suspend fun clear()
+}
+
+@Dao
+interface MerchantRuleDao {
+
+    @Query("SELECT * FROM merchant_rules")
+    suspend fun all(): List<MerchantRuleEntity>
+
+    @Query("SELECT * FROM merchant_rules ORDER BY updatedAt DESC")
+    fun observeAll(): Flow<List<MerchantRuleEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: MerchantRuleEntity)
+
+    @Query("DELETE FROM merchant_rules")
+    suspend fun clear()
+
+    @Query("SELECT COUNT(*) FROM merchant_rules")
+    suspend fun count(): Int
 }
 
 @Dao

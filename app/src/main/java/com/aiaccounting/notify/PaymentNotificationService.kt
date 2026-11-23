@@ -55,7 +55,8 @@ class PaymentNotificationService : NotificationListenerService() {
                 }
                 val accountId = accountName?.let { repository.accountIdByName(it) }
                     ?: repository.accounts().firstOrNull()?.id
-                val categoryId = repository.defaultCategoryId(parsed.type)
+                // 商户之前学过分类就直接命中
+                val categoryId = repository.resolveCategoryId(parsed.merchant, parsed.type)
 
                 if (accountId != null && categoryId != null) {
                     repository.addCapturedTransaction(

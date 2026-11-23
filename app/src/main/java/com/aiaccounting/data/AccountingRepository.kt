@@ -3,12 +3,14 @@ package com.aiaccounting.data
 import com.aiaccounting.data.local.AccountEntity
 import com.aiaccounting.data.local.AppDatabase
 import com.aiaccounting.data.local.CategoryEntity
+import com.aiaccounting.data.local.MerchantRuleEntity
 import com.aiaccounting.data.local.RawCaptureEntity
 import com.aiaccounting.data.local.TransactionEntity
 import com.aiaccounting.domain.AlipayBillParser
 import com.aiaccounting.domain.BillRow
 import com.aiaccounting.domain.BackupCsv
 import com.aiaccounting.domain.DedupKey
+import com.aiaccounting.domain.MerchantMatcher
 import com.aiaccounting.domain.Tx
 import com.aiaccounting.domain.TxSource
 import com.aiaccounting.domain.TxType
@@ -26,6 +28,7 @@ class AccountingRepository(
     private val categoryDao = db.categoryDao()
     private val accountDao = db.accountDao()
     private val rawCaptureDao = db.rawCaptureDao()
+    private val merchantRuleDao = db.merchantRuleDao()
 
     /** 首次启动写入种子数据；已写过则什么都不做。 */
     suspend fun ensureSeeded() {
@@ -79,6 +82,36 @@ class AccountingRepository(
         categoryDao.byKind(type.name).firstOrNull { it.name == "其他" }?.id
             ?: categoryDao.byKind(type.name).firstOrNull()?.id
 
+    // ── 商户 → 分类自学习 ───────────────────────────────────────────────
+
+    /** 记住「这个商户属于哪个分类」。商户名为空或归一化后为空就跳过。 */
+    suspend fun saveMerchantRule(merchant: String?, categoryId: Long) {
+        val pattern = MerchantMatcher.normalize(merchant.orEmpty())
+        if (pattern.isEmpty()) return
+        val existing = merchantRuleDao.all().firstOrNull { it.pattern == pattern }
+        merchantRuleDao.upsert(
+            MerchantRuleEntity(
+                id = existing?.id ?: 0,
+                pattern = pattern,
+                categoryId = categoryId,
+                hitCount = (existing?.hitCount ?: 0) + 1,
+                updatedAt = now(),
+            ),
+        )
+    }
+
+    /** 优先用学到的规则，其次回落到该类型的默认分类（其他）。 */
+    suspend fun resolveCategoryId(merchant: String?, type: TxType): Long? {
+        val rules = merchantRuleDao.all().map { MerchantMatcher.Rule(it.pattern, it.categoryId) }
+        val matched = MerchantMatcher.bestMatch(rules, merchant)
+        if (matched != null && categoryDao.byKind(type.name).any { it.id == matched }) {
+            return matched
+        }
+        return defaultCategoryId(type)
+    }
+
+    suspend fun merchantRuleCount(): Int = merchantRuleDao.count()
+
     // ── 账单导入 ────────────────────────────────────────────────────────
 
     data class BillImportPreview(
@@ -123,14 +156,13 @@ class AccountingRepository(
         val accountId = accountIdByName(accountName)
             ?: accountDao.all().firstOrNull()?.id
             ?: return 0
-        val expenseCategory = defaultCategoryId(TxType.EXPENSE)
-        val incomeCategory = defaultCategoryId(TxType.INCOME)
 
         var inserted = 0
         db.withTransaction {
             rows.forEach { row ->
-                val categoryId = (if (row.type == TxType.EXPENSE) expenseCategory else incomeCategory)
-                    ?: return@forEach
+                // 商户之前学过分类就直接命中，否则落到「其他」
+                val merchant = row.counterparty ?: row.description
+                val categoryId = resolveCategoryId(merchant, row.type) ?: return@forEach
                 transactionDao.insert(
                     TransactionEntity(
                         type = row.type.name,
@@ -138,7 +170,7 @@ class AccountingRepository(
                         occurredAt = row.occurredAt,
                         categoryId = categoryId,
                         accountId = accountId,
-                        merchant = row.counterparty ?: row.description,
+                        merchant = merchant,
                         note = row.description?.takeIf { it != row.counterparty },
                         source = TxSource.IMPORT.name,
                         dedupKey = dedupKeyOf(row),
@@ -197,7 +229,10 @@ class AccountingRepository(
         ),
     )
 
-    /** 编辑已有记录：只改用户可改的字段，来源与去重指纹保持原样。 */
+    /**
+     * 编辑已有记录：只改用户可改的字段，来源、去重指纹、**商户名**保持原样。
+     * 分类被改过的话，顺手把这个商户 → 分类记下来（自学习）。
+     */
     suspend fun updateTransaction(
         id: Long,
         type: TxType,
@@ -205,7 +240,6 @@ class AccountingRepository(
         categoryId: Long,
         accountId: Long,
         occurredAt: Long,
-        merchant: String? = null,
         note: String? = null,
     ) {
         val existing = transactionDao.findById(id) ?: return
@@ -216,11 +250,13 @@ class AccountingRepository(
                 categoryId = categoryId,
                 accountId = accountId,
                 occurredAt = occurredAt,
-                merchant = merchant,
                 note = note,
                 updatedAt = now(),
             ),
         )
+        if (existing.categoryId != categoryId) {
+            saveMerchantRule(existing.merchant, categoryId)
+        }
     }
 
     suspend fun deleteTransaction(id: Long) = transactionDao.deleteById(id)

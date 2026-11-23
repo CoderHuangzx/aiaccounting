@@ -67,3 +67,19 @@ data class RawCaptureEntity(
     val reason: String? = null,
 )
 
+/**
+ * 商户 → 分类的学习结果。
+ *
+ * 用户改过一次某商户的分类，就往这里记一条；下次该商户再进来直接落到对应分类，
+ * 不用再手工挑。pattern 存归一化后的商户名，天然去重。
+ */
+@Entity(tableName = "merchant_rules", indices = [Index(value = ["pattern"], unique = true)])
+data class MerchantRuleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val pattern: String,
+    val categoryId: Long,
+    val hitCount: Int = 1,
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
+
