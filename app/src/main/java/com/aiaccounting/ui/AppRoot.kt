@@ -106,7 +106,7 @@ fun AppRoot(
     LaunchedEffect(Unit) {
         if (Settings.canDrawOverlays(context)) {
             runCatching {
-                context.startService(Intent(context, OverlayAnchorService::class.java))
+                context.startForegroundService(Intent(context, OverlayAnchorService::class.java))
             }
         }
     }
