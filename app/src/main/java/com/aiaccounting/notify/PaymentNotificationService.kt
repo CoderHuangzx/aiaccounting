@@ -22,8 +22,29 @@ class PaymentNotificationService : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * 服务刚绑上时，把还挂在通知栏里的通知补捞一遍。
+     *
+     * 覆盖安装、强制停止、系统重启之后，监听器会短暂掉线；这期间推送出来的
+     * 支付通知如果不管，就永远丢了。只补最近 15 分钟的，避免每次重连都刷一堆旧记录。
+     */
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        runCatching {
+            val cutoff = System.currentTimeMillis() - 15 * 60 * 1000
+            activeNotifications?.forEach { sbn ->
+                if (sbn.postTime >= cutoff) handle(sbn)
+            }
+        }
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        val notification = sbn?.notification ?: return
+        val notification = sbn ?: return
+        handle(notification)
+    }
+
+    private fun handle(sbn: StatusBarNotification) {
+        val notification = sbn.notification ?: return
         val packageName = sbn.packageName ?: return
 
         // 只处理名单里的 App（微信/支付宝/淘宝/京东/美团/抖音）

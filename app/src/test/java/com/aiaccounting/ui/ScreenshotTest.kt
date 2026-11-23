@@ -250,6 +250,8 @@ class ScreenshotTest {
                     onInbox = {},
                     onNotificationPermission = {},
                     onCaptureLog = {},
+                    bubbleEnabled = false,
+                    onToggleBubble = {},
                 )
             }
         }

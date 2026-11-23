@@ -26,6 +26,7 @@ class SettingsScreenTest {
     private var openedWebDav = false
     private var openedInbox = false
     private var backClicked = false
+    private var bubbleToggled = false
 
     private fun content() {
         composeRule.setContent {
@@ -47,6 +48,8 @@ class SettingsScreenTest {
                     onInbox = { openedInbox = true },
                     onNotificationPermission = {},
                     onCaptureLog = {},
+                    bubbleEnabled = false,
+                    onToggleBubble = { bubbleToggled = true },
                 )
             }
         }
@@ -115,6 +118,16 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("待确认收件箱").performClick()
         assertTrue(openedInbox)
+    }
+
+    @Test
+    fun 自动记账页能开关悬浮球() {
+        content()
+
+        composeRule.onNodeWithText("自动记账").performClick()
+        composeRule.onNodeWithText("快捷记账悬浮球").assertIsDisplayed()
+        composeRule.onNodeWithText("快捷记账悬浮球").performClick()
+        assertTrue(bubbleToggled)
     }
 
     @Test
