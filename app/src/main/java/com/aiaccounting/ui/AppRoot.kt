@@ -1,5 +1,7 @@
 package com.aiaccounting.ui
 
+import android.content.Intent
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +34,7 @@ import com.aiaccounting.ui.entry.EntrySheet
 import com.aiaccounting.ui.entry.EntryViewModel
 import com.aiaccounting.ui.home.HomeScreen
 import com.aiaccounting.ui.home.HomeViewModel
+import com.aiaccounting.ui.inbox.InboxSheet
 import com.aiaccounting.ui.report.ReportScreen
 import com.aiaccounting.ui.report.ReportViewModel
 import com.aiaccounting.ui.theme.AlertRed
@@ -51,6 +54,7 @@ fun AppRoot() {
     val entryViewModel: EntryViewModel = viewModel(factory = EntryViewModel.factory(repository))
 
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    val pendingTxs by homeViewModel.pending.collectAsStateWithLifecycle()
     val reportState by reportViewModel.uiState.collectAsStateWithLifecycle()
     val entryState by entryViewModel.state.collectAsStateWithLifecycle()
 
@@ -58,6 +62,7 @@ fun AppRoot() {
     var showEntry by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var showBackup by remember { mutableStateOf(false) }
+    var showInbox by remember { mutableStateOf(false) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -201,6 +206,8 @@ fun AppRoot() {
                     showBackup = true
                 },
                 onQueryChange = homeViewModel::onQueryChange,
+                pendingCount = pendingTxs.size,
+                onPendingClick = { showInbox = true },
             )
 
             else -> ReportScreen(
@@ -265,6 +272,23 @@ fun AppRoot() {
             onUpload = { uploadToCloud(false) },
             onDownload = downloadFromCloud,
             onDismiss = { showWebDav = false },
+        )
+    }
+
+    if (showInbox) {
+        InboxSheet(
+            pending = pendingTxs,
+            onConfirm = homeViewModel::confirmPending,
+            onIgnore = homeViewModel::ignorePending,
+            onOpenPermission = {
+                val opened = runCatching {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }.isSuccess
+                if (!opened) {
+                    Toast.makeText(context, "打不开系统设置，请手动去「通知使用权」里开启", Toast.LENGTH_LONG).show()
+                }
+            },
+            onDismiss = { showInbox = false },
         )
     }
 

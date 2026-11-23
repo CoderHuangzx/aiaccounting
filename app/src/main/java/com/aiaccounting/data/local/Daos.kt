@@ -10,7 +10,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TransactionDao {
 
-    @Query("SELECT * FROM transactions ORDER BY occurredAt DESC, id DESC")
+    /** 正式账本只包含已确认的记录；待确认的走 [observePending]。 */
+    @Query("SELECT * FROM transactions WHERE status = 'CONFIRMED' ORDER BY occurredAt DESC, id DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM transactions ORDER BY occurredAt DESC, id DESC")
@@ -36,6 +37,31 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM transactions WHERE status = 'PENDING' ORDER BY occurredAt DESC, id DESC")
+    fun observePending(): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE status = 'PENDING' ORDER BY occurredAt DESC, id DESC")
+    suspend fun pending(): List<TransactionEntity>
+
+    @Query("UPDATE transactions SET status = :status, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateStatus(id: Long, status: String, updatedAt: Long)
+}
+
+@Dao
+interface RawCaptureDao {
+
+    @Insert
+    suspend fun insert(entity: RawCaptureEntity): Long
+
+    @Query("SELECT * FROM raw_captures ORDER BY capturedAt DESC LIMIT :limit")
+    suspend fun latest(limit: Int): List<RawCaptureEntity>
+
+    @Query("SELECT * FROM raw_captures ORDER BY capturedAt DESC LIMIT :limit")
+    fun observeLatest(limit: Int): Flow<List<RawCaptureEntity>>
+
+    @Query("DELETE FROM raw_captures")
+    suspend fun clear()
 }
 
 @Dao

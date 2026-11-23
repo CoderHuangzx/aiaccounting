@@ -49,3 +49,21 @@ data class TransactionEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 )
+
+/**
+ * 通知原文留档。
+ *
+ * 支付 App 的通知文案会随版本变化，规则调歪了必须有原始文本才能回溯，
+ * 否则「为什么这笔没记上」永远查不清。
+ */
+@Entity(tableName = "raw_captures", indices = [Index("capturedAt")])
+data class RawCaptureEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val packageName: String,
+    val title: String?,
+    val text: String?,
+    val capturedAt: Long,
+    val parsed: Boolean,
+    val reason: String? = null,
+)
+

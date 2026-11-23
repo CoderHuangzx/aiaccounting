@@ -10,11 +10,13 @@ import com.aiaccounting.domain.DaySection
 import com.aiaccounting.domain.HomeFilter
 import com.aiaccounting.domain.HomeGrouper
 import com.aiaccounting.domain.HomeSummary
+import com.aiaccounting.domain.Tx
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -49,6 +51,18 @@ class HomeViewModel(private val repository: AccountingRepository) : ViewModel() 
 
     fun onQueryChange(value: String) {
         query.value = value
+    }
+
+    /** 自动捕捉进来、还没确认的记录。 */
+    val pending: StateFlow<List<Tx>> = repository.observePending()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun confirmPending(id: Long) {
+        viewModelScope.launch { repository.confirmTransaction(id) }
+    }
+
+    fun ignorePending(id: Long) {
+        viewModelScope.launch { repository.ignoreTransaction(id) }
     }
 
     companion object {

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
@@ -47,6 +48,8 @@ import com.aiaccounting.ui.components.EmptyBlock
 import com.aiaccounting.ui.components.SoftCard
 import com.aiaccounting.ui.components.SourceChip
 import com.aiaccounting.ui.theme.BrandBlue
+import com.aiaccounting.ui.theme.BrandBlueDeep
+import com.aiaccounting.ui.theme.BrandBlueSofter
 import com.aiaccounting.ui.theme.IncomeGreen
 import com.aiaccounting.ui.theme.TextFaint
 import com.aiaccounting.ui.theme.TextMain
@@ -60,6 +63,8 @@ fun HomeScreen(
     onTxClick: (Tx) -> Unit = {},
     onBackupClick: () -> Unit = {},
     onQueryChange: (String) -> Unit = {},
+    pendingCount: Int = 0,
+    onPendingClick: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -73,6 +78,12 @@ fun HomeScreen(
 
         item(key = "search") {
             SearchBar(query = state.query, onQueryChange = onQueryChange)
+        }
+
+        if (pendingCount > 0) {
+            item(key = "pending") {
+                PendingBanner(count = pendingCount, onClick = onPendingClick)
+            }
         }
 
         if (state.sections.isEmpty()) {
@@ -99,6 +110,54 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PendingBanner(count: Int, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(BrandBlueSofter)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(BrandBlue),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "$count",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "有 $count 笔待确认",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = BrandBlueDeep,
+            )
+            Text(
+                text = "从微信/支付宝通知里捕捉到的",
+                fontSize = 11.sp,
+                color = TextSub,
+            )
+        }
+        Text(
+            text = "去确认",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = BrandBlue,
+        )
     }
 }
 

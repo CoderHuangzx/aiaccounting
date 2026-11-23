@@ -3,6 +3,7 @@ package com.aiaccounting.data
 import com.aiaccounting.data.local.AccountEntity
 import com.aiaccounting.data.local.AppDatabase
 import com.aiaccounting.data.local.CategoryEntity
+import com.aiaccounting.data.local.RawCaptureEntity
 import com.aiaccounting.data.local.TransactionEntity
 import com.aiaccounting.domain.BackupCsv
 import com.aiaccounting.domain.DedupKey
@@ -22,12 +23,59 @@ class AccountingRepository(
     private val transactionDao = db.transactionDao()
     private val categoryDao = db.categoryDao()
     private val accountDao = db.accountDao()
+    private val rawCaptureDao = db.rawCaptureDao()
 
     /** 首次启动写入种子数据；已写过则什么都不做。 */
     suspend fun ensureSeeded() {
         if (categoryDao.count() == 0) categoryDao.insertAll(SeedData.allCategories)
         if (accountDao.count() == 0) accountDao.insertAll(SeedData.accounts)
     }
+
+    // ── 自动捕捉 ────────────────────────────────────────────────────────
+
+    fun observePending(): Flow<List<Tx>> = combine(
+        transactionDao.observePending(),
+        categoryDao.observeAll(),
+        accountDao.observeAll(),
+    ) { transactions, categories, accounts ->
+        val categoryMap = categories.associateBy { it.id }
+        val accountMap = accounts.associateBy { it.id }
+        transactions.map { it.toTx(categoryMap[it.categoryId], accountMap[it.accountId]) }
+    }
+
+    suspend fun confirmTransaction(id: Long) =
+        transactionDao.updateStatus(id, "CONFIRMED", now())
+
+    suspend fun ignoreTransaction(id: Long) = transactionDao.deleteById(id)
+
+    suspend fun recordRawCapture(
+        packageName: String,
+        title: String?,
+        text: String?,
+        parsed: Boolean,
+        reason: String? = null,
+    ) {
+        rawCaptureDao.insert(
+            RawCaptureEntity(
+                packageName = packageName,
+                title = title,
+                text = text,
+                capturedAt = now(),
+                parsed = parsed,
+                reason = reason,
+            ),
+        )
+    }
+
+    suspend fun latestRawCaptures(limit: Int = 20): List<RawCaptureEntity> =
+        rawCaptureDao.latest(limit)
+
+    suspend fun accountIdByName(name: String): Long? =
+        accountDao.all().firstOrNull { it.name == name }?.id
+
+    suspend fun defaultCategoryId(type: TxType): Long? =
+        categoryDao.byKind(type.name).firstOrNull { it.name == "其他" }?.id
+            ?: categoryDao.byKind(type.name).firstOrNull()?.id
 
     fun observeTransactions(): Flow<List<Tx>> = combine(
         transactionDao.observeAll(),
