@@ -68,6 +68,13 @@ class PaymentNotificationService : NotificationListenerService() {
         scope.launch {
             runCatching {
                 repository.ensureSeeded()
+                // 只留「像支付」的通知，营销推送和消息提醒不进日志，免得噪音淹没真正有用的记录
+                val haystack = listOfNotNull(title, text).joinToString(" ")
+                val looksLikeMoney = listOf(
+                    "支付", "付款", "收款", "到账", "入账", "实付", "退款", "转账", "¥", "￥", "元",
+                ).any { haystack.contains(it) }
+                if (parsed == null && !looksLikeMoney) return@runCatching
+
                 repository.recordRawCapture(
                     packageName = packageName,
                     title = title,
