@@ -37,15 +37,23 @@ class OrderAccessibilityService : AccessibilityService() {
             return
         }
 
-        val texts = collectTexts(rootInActiveWindow) ?: return
+        // 关键一道闸：event 里的包名可能是「上一个窗口」的残留，
+        // 真正的前台必须以当前活动窗口的根节点为准。
+        // 少了这一步会读到我们自己的记账界面，从「-5.11」「-4.11」里抠金额，形成自我记账的死循环。
+        val root = rootInActiveWindow ?: return
+        val foregroundPackage = root.packageName?.toString()
+        if (foregroundPackage == null || foregroundPackage !in WATCHED_PACKAGES) return
+
+        val texts = collectTexts(root) ?: return
         if (texts.isEmpty()) return
 
         val parsed = OrderScreenParser.parse(texts) ?: return
 
-        val signature = "${parsed.kind}|${parsed.amountCents}|${parsed.merchant.orEmpty()}"
+        // 有订单编号就按编号判重（同一单反复打开不会重复记）；
+        // 没有就退回「类型+金额+店铺」。
+        val signature = parsed.orderNo?.let { "no:$it" }
+            ?: "${parsed.kind}|${parsed.amountCents}|${parsed.merchant.orEmpty()}"
         val now = System.currentTimeMillis()
-        // 同一笔（类型+金额+店铺）12 小时内只记一次：
-        // 订单页可能被反复打开，光靠内存判断拦不住隔天再进一次。
         val prefs = getSharedPreferences("order_screen", MODE_PRIVATE)
         val lastSignature = prefs.getString(KEY_SIGNATURE, null)
         val lastAt = prefs.getLong(KEY_TIME, 0L)
@@ -57,14 +65,16 @@ class OrderAccessibilityService : AccessibilityService() {
             runCatching {
                 repository.ensureSeeded()
                 repository.recordRawCapture(
-                    packageName = packageName,
+                    packageName = foregroundPackage,
                     title = parsed.kind.label + "：" + parsed.evidence,
                     text = texts.joinToString(" ").take(300),
                     parsed = true,
                     reason = null,
                 )
 
-                val accountName = if (packageName.startsWith("com.taobao") || packageName.startsWith("com.tmall")) {
+                val accountName = if (foregroundPackage.startsWith("com.taobao") ||
+                    foregroundPackage.startsWith("com.tmall")
+                ) {
                     "支付宝"
                 } else {
                     "微信"
