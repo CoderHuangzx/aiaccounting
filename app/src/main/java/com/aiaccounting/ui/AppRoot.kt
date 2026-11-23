@@ -200,6 +200,7 @@ fun AppRoot() {
                     backupMessage = null
                     showBackup = true
                 },
+                onQueryChange = homeViewModel::onQueryChange,
             )
 
             else -> ReportScreen(

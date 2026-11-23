@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +27,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +46,7 @@ import com.aiaccounting.ui.components.EmojiBadge
 import com.aiaccounting.ui.components.EmptyBlock
 import com.aiaccounting.ui.components.SoftCard
 import com.aiaccounting.ui.components.SourceChip
+import com.aiaccounting.ui.theme.BrandBlue
 import com.aiaccounting.ui.theme.IncomeGreen
 import com.aiaccounting.ui.theme.TextFaint
 import com.aiaccounting.ui.theme.TextMain
@@ -52,6 +59,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onTxClick: (Tx) -> Unit = {},
     onBackupClick: () -> Unit = {},
+    onQueryChange: (String) -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -63,13 +71,21 @@ fun HomeScreen(
             Spacer(Modifier.height(6.dp))
         }
 
+        item(key = "search") {
+            SearchBar(query = state.query, onQueryChange = onQueryChange)
+        }
+
         if (state.sections.isEmpty()) {
             item(key = "empty") {
                 SoftCard(modifier = Modifier.fillMaxWidth()) {
                     EmptyBlock(
-                        emoji = "🧾",
-                        title = if (state.loaded) "还没有记录" else "正在加载…",
-                        hint = "点下面的 + 记第一笔",
+                        emoji = if (state.isSearching) "🔍" else "🧾",
+                        title = when {
+                            !state.loaded -> "正在加载…"
+                            state.isSearching -> "没有匹配的记录"
+                            else -> "还没有记录"
+                        },
+                        hint = if (state.isSearching) "换个关键词试试" else "点下面的 + 记第一笔",
                     )
                 }
             }
@@ -83,6 +99,73 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MagnifierGlyph(color = TextFaint)
+        Spacer(Modifier.width(8.dp))
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 13.sp, color = TextMain),
+            cursorBrush = SolidColor(BrandBlue),
+            decorationBox = { inner ->
+                Box {
+                    if (query.isEmpty()) {
+                        Text(
+                            text = "搜索分类、商户、备注或金额",
+                            fontSize = 13.sp,
+                            color = TextFaint,
+                        )
+                    }
+                    inner()
+                }
+            },
+        )
+        if (query.isNotEmpty()) {
+            Text(
+                text = "✕",
+                fontSize = 13.sp,
+                color = TextSub,
+                modifier = Modifier
+                    .testTag("searchClear")
+                    .clip(RoundedCornerShape(50))
+                    .clickable { onQueryChange("") }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MagnifierGlyph(color: Color) {
+    Canvas(modifier = Modifier.size(14.dp)) {
+        val stroke = 1.6.dp.toPx()
+        drawCircle(
+            color = color,
+            radius = size.minDimension * 0.32f,
+            center = Offset(size.width * 0.42f, size.height * 0.42f),
+            style = Stroke(width = stroke),
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.64f, size.height * 0.64f),
+            end = Offset(size.width * 0.95f, size.height * 0.95f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
     }
 }
 
