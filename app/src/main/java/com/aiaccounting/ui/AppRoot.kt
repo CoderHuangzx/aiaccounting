@@ -34,6 +34,7 @@ import com.aiaccounting.domain.AlipayBillParser
 import com.aiaccounting.domain.WeChatBillParser
 import com.aiaccounting.domain.XlsxReader
 import com.aiaccounting.ui.backup.WebDavSheet
+import com.aiaccounting.ui.settings.CaptureLogSheet
 import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.components.HomeBottomBar
 import com.aiaccounting.ui.entry.EntrySheet
@@ -69,6 +70,8 @@ fun AppRoot() {
     var confirmDelete by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showInbox by remember { mutableStateOf(false) }
+    var showCaptureLog by remember { mutableStateOf(false) }
+    var captures by remember { mutableStateOf<List<com.aiaccounting.data.local.RawCaptureEntity>>(emptyList()) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
     var billPreview by remember { mutableStateOf<AccountingRepository.BillImportPreview?>(null) }
     var billSourceName by remember { mutableStateOf("支付宝") }
@@ -348,6 +351,7 @@ fun AppRoot() {
                 showInbox = true
             },
             onNotificationPermission = openNotificationSettings,
+            onCaptureLog = { showCaptureLog = true },
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -416,6 +420,13 @@ fun AppRoot() {
                 TextButton(onClick = { billPreview = null }) { Text("取消") }
             },
         )
+    }
+
+    if (showCaptureLog) {
+        LaunchedEffect(Unit) {
+            captures = repository.latestRawCaptures(50)
+        }
+        CaptureLogSheet(captures = captures, onDismiss = { showCaptureLog = false })
     }
 
     if (confirmDelete) {

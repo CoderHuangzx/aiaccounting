@@ -56,6 +56,7 @@ fun SettingsScreen(
     onWebDav: () -> Unit,
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
+    onCaptureLog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -139,8 +140,14 @@ fun SettingsScreen(
             RowDivider()
             SettingsRow(
                 title = "通知读取权限",
-                subtitle = "开启后自动捕捉微信/支付宝支付通知",
+                subtitle = "开启后自动捕捉微信/支付宝/淘宝/京东/美团/抖音的通知",
                 onClick = onNotificationPermission,
+            )
+            RowDivider()
+            SettingsRow(
+                title = "捕捉日志",
+                subtitle = "看看哪些通知被记了、哪些没匹配上",
+                onClick = onCaptureLog,
             )
         }
 

@@ -1,7 +1,9 @@
 package com.aiaccounting.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -104,5 +106,100 @@ class PaymentParserTest {
     fun `空标题空正文返回 null`() {
         assertNull(PaymentParser.parse("com.tencent.mm", null, null))
         assertNull(PaymentParser.parse("com.tencent.mm", "", ""))
+    }
+
+    // ── 电商 / 外卖渠道 ─────────────────────────────────────────────────
+
+    private fun parseMeituan(title: String, text: String) =
+        PaymentParser.parse("com.sankuai.meituan.takeoutnew", title, text)
+
+    private fun parseJd(title: String, text: String) =
+        PaymentParser.parse("com.jingdong.app.mall", title, text)
+
+    private fun parseTaobao(title: String, text: String) =
+        PaymentParser.parse("com.taobao.taobao", title, text)
+
+    private fun parseDouyin(title: String, text: String) =
+        PaymentParser.parse("com.ss.android.ugc.aweme", title, text)
+
+    @Test
+    fun `美团支付成功能认出金额`() {
+        val parsed = parseMeituan("美团外卖", "支付成功，本单实付¥22.90")
+        assertEquals(2290L, parsed?.amountCents)
+        assertEquals(TxType.EXPENSE, parsed?.type)
+        assertEquals(PaymentParser.Channel.MEITUAN, parsed?.channel)
+        assertEquals("美团", parsed?.merchant)
+    }
+
+    @Test
+    fun `京东已付款能认出来`() {
+        val parsed = parseJd("京东", "您的订单已付款，实付 ¥99.00")
+        assertEquals(9900L, parsed?.amountCents)
+        assertEquals(PaymentParser.Channel.JD, parsed?.channel)
+    }
+
+    @Test
+    fun `淘宝支付成功默认走支付宝账户`() {
+        val parsed = parseTaobao("淘宝", "支付成功 实付款 ¥59.90")
+        assertEquals(5990L, parsed?.amountCents)
+        assertEquals(PaymentParser.Channel.TAOBAO, parsed?.channel)
+        assertEquals("支付宝", parsed?.accountName)
+    }
+
+    @Test
+    fun `抖音订单支付成功`() {
+        val parsed = parseDouyin("抖音商城", "订单支付成功，实付¥39.90")
+        assertEquals(3990L, parsed?.amountCents)
+        assertEquals(PaymentParser.Channel.DOUYIN, parsed?.channel)
+    }
+
+    @Test
+    fun `文案里写了支付方式就按文案算账户`() {
+        val parsed = parseMeituan("美团", "支付成功，实付¥30.00（支付宝）")
+        assertEquals("支付宝", parsed?.accountName)
+    }
+
+    @Test
+    fun `电商的待支付 失败 取消 退款都不记账`() {
+        assertNull(parseJd("京东", "您的订单待支付 ¥99.00"))
+        assertNull(parseMeituan("美团外卖", "支付失败，请重新支付 ¥22.90"))
+        assertNull(parseMeituan("美团", "订单已取消 ¥22.90"))
+        assertNull(parseTaobao("淘宝", "退款成功 ¥59.90"))
+        assertNull(parseDouyin("抖音商城", "订单已关闭 ¥39.90"))
+    }
+
+    @Test
+    fun `电商没有成功词就不算账`() {
+        // 只是推送「您有一笔新订单」，还没付钱
+        assertNull(parseMeituan("美团", "您有一笔新订单，去支付"))
+    }
+
+    @Test
+    fun `包名到渠道的映射`() {
+        assertEquals(PaymentParser.Channel.WECHAT, PaymentParser.channelOf("com.tencent.mm"))
+        assertEquals(PaymentParser.Channel.ALIPAY, PaymentParser.channelOf("com.eg.android.AlipayGphone"))
+        assertEquals(PaymentParser.Channel.TAOBAO, PaymentParser.channelOf("com.taobao.taobao"))
+        assertEquals(PaymentParser.Channel.JD, PaymentParser.channelOf("com.jingdong.app.mall"))
+        assertEquals(PaymentParser.Channel.MEITUAN, PaymentParser.channelOf("com.sankuai.meituan"))
+        assertEquals(PaymentParser.Channel.MEITUAN, PaymentParser.channelOf("com.sankuai.meituan.takeoutnew"))
+        assertEquals(PaymentParser.Channel.DOUYIN, PaymentParser.channelOf("com.ss.android.ugc.aweme"))
+        assertEquals(PaymentParser.Channel.UNKNOWN, PaymentParser.channelOf("com.example.app"))
+        assertEquals(PaymentParser.Channel.UNKNOWN, PaymentParser.channelOf(null))
+    }
+
+    @Test
+    fun `六个 App 都在监听名单里`() {
+        listOf(
+            "com.tencent.mm",
+            "com.eg.android.AlipayGphone",
+            "com.taobao.taobao",
+            "com.jingdong.app.mall",
+            "com.sankuai.meituan",
+            "com.ss.android.ugc.aweme",
+        ).forEach { pkg ->
+            assertTrue("$pkg 应该在监听名单里", PaymentParser.isWatched(pkg))
+        }
+        assertFalse(PaymentParser.isWatched("com.example.app"))
+        assertFalse(PaymentParser.isWatched(null))
     }
 }

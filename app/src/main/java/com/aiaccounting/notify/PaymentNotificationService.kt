@@ -12,10 +12,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * 微信 / 支付宝支付通知的捕捉入口。
+ * 支付 / 购物通知的捕捉入口。
  *
- * 只做三件事：留档原文 → 规则解析 → 生成一条「待确认」记录。
- * 解析失败的也会留档，方便之后对照真实文案调规则（规则一定会有调不准的时候）。
+ * 三件事：留档原文 → 规则解析 → 生成一条「待确认」记录。
+ * 监听范围内的 App 即使解析失败也会留档（parsed=false + 原因），
+ * 这样规则调不准时能拿真实文案回溯，而不是「为什么这笔没记上」查不清。
  */
 class PaymentNotificationService : NotificationListenerService() {
 
@@ -25,8 +26,8 @@ class PaymentNotificationService : NotificationListenerService() {
         val notification = sbn?.notification ?: return
         val packageName = sbn.packageName ?: return
 
-        val channel = PaymentParser.channelOf(packageName)
-        if (channel == PaymentParser.Channel.UNKNOWN) return
+        // 只处理名单里的 App（微信/支付宝/淘宝/京东/美团/抖音）
+        if (!PaymentParser.isWatched(packageName)) return
 
         val extras = notification.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
@@ -45,15 +46,12 @@ class PaymentNotificationService : NotificationListenerService() {
                     title = title,
                     text = text,
                     parsed = parsed != null,
+                    reason = if (parsed == null) "没匹配到支付成功规则" else null,
                 )
                 if (parsed == null) return@runCatching
 
-                val accountName = when (parsed.channel) {
-                    PaymentParser.Channel.WECHAT -> "微信"
-                    PaymentParser.Channel.ALIPAY -> "支付宝"
-                    else -> null
-                }
-                val accountId = accountName?.let { repository.accountIdByName(it) }
+                val accountId = parsed.accountName?.let { repository.accountIdByName(it) }
+                    ?: repository.accountIdByName("微信")
                     ?: repository.accounts().firstOrNull()?.id
                 // 商户之前学过分类就直接命中
                 val categoryId = repository.resolveCategoryId(parsed.merchant, parsed.type)
@@ -66,6 +64,7 @@ class PaymentNotificationService : NotificationListenerService() {
                         accountId = accountId,
                         occurredAt = System.currentTimeMillis(),
                         merchant = parsed.merchant,
+                        note = null,
                         source = TxSource.NOTIFICATION,
                     )
                 }

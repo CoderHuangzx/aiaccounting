@@ -247,6 +247,7 @@ class ScreenshotTest {
                     onWebDav = {},
                     onInbox = {},
                     onNotificationPermission = {},
+                    onCaptureLog = {},
                 )
             }
         }

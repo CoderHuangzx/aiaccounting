@@ -41,6 +41,7 @@ class SettingsScreenTest {
                     onWebDav = {},
                     onInbox = {},
                     onNotificationPermission = {},
+                    onCaptureLog = {},
                 )
             }
         }
