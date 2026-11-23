@@ -3,7 +3,7 @@
 一个自用的 Android 记账 App：手动记账 + 自动捕捉，数据全部留在本机。
 
 当前版本：**v0.1.1** —— 手动记账、通知捕捉（6 个 App）、读屏记账（下单即记）、账单导入（支付宝/微信）、CSV/WebDAV 备份、商户→分类自学习都已可用。
-范围与排期见 [docs/mvp-scope.md](docs/mvp-scope.md)。
+总体设计与路线图见 [docs/design.md](docs/design.md)，范围与排期见 [docs/mvp-scope.md](docs/mvp-scope.md)。
 
 ## 界面
 
