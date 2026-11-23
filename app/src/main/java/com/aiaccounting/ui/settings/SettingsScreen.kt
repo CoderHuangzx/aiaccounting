@@ -80,6 +80,7 @@ fun SettingsScreen(
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
+    onOpenAccessibility: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var page by rememberSaveable { mutableStateOf(SettingsPage.MAIN) }
@@ -115,6 +116,7 @@ fun SettingsScreen(
                 onInbox = onInbox,
                 onNotificationPermission = onNotificationPermission,
                 onCaptureLog = onCaptureLog,
+                onOpenAccessibility = onOpenAccessibility,
             )
 
             SettingsPage.IMPORT -> ImportPage(
@@ -231,6 +233,7 @@ private fun AutoCapturePage(
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
+    onOpenAccessibility: () -> Unit,
 ) {
     PageScaffold(title = "自动记账", onBack = onBack) {
         Text(
@@ -259,6 +262,16 @@ private fun AutoCapturePage(
                 title = "捕捉日志",
                 subtitle = "看看哪些通知被记了、哪些没匹配上",
                 onClick = onCaptureLog,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        SettingsCard {
+            SettingsRow(
+                title = "读屏记账（下单即记）",
+                subtitle = "淘宝/京东/抖音/美团下单、退款时读页面文字，立刻记一笔（进待确认）",
+                onClick = onOpenAccessibility,
             )
         }
 

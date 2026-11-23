@@ -377,6 +377,11 @@ fun AppRoot(
             },
             onNotificationPermission = openNotificationSettings,
             onCaptureLog = { showCaptureLog = true },
+            onOpenAccessibility = {
+                runCatching {
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+            },
             modifier = Modifier.fillMaxSize(),
         )
     }

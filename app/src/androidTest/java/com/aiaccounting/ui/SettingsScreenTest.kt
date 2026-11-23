@@ -47,6 +47,7 @@ class SettingsScreenTest {
                     onInbox = { openedInbox = true },
                     onNotificationPermission = {},
                     onCaptureLog = {},
+                    onOpenAccessibility = {},
                 )
             }
         }
