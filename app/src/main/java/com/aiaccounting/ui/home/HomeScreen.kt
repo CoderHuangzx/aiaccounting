@@ -61,7 +61,7 @@ fun HomeScreen(
     state: HomeUiState,
     modifier: Modifier = Modifier,
     onTxClick: (Tx) -> Unit = {},
-    onBackupClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     onQueryChange: (String) -> Unit = {},
     pendingCount: Int = 0,
     onPendingClick: () -> Unit = {},
@@ -72,7 +72,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "header") {
-            HomeHeader(summary = state.summary, onBackupClick = onBackupClick)
+            HomeHeader(summary = state.summary, onSettingsClick = onSettingsClick)
             Spacer(Modifier.height(6.dp))
         }
 
@@ -109,6 +109,28 @@ fun HomeScreen(
                     TxRow(tx = tx, onClick = { onTxClick(tx) })
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GearGlyph(color: Color) {
+    Canvas(modifier = Modifier.size(14.dp)) {
+        val stroke = 1.3.dp.toPx()
+        val radius = size.minDimension * 0.26f
+        val center = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(color = color, radius = radius, center = center, style = Stroke(width = stroke))
+        repeat(8) { index ->
+            val angle = Math.toRadians(index * 45.0)
+            val cos = kotlin.math.cos(angle).toFloat()
+            val sin = kotlin.math.sin(angle).toFloat()
+            drawLine(
+                color = color,
+                start = Offset(center.x + radius * cos, center.y + radius * sin),
+                end = Offset(center.x + radius * 1.6f * cos, center.y + radius * 1.6f * sin),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round,
+            )
         }
     }
 }
@@ -229,7 +251,7 @@ private fun MagnifierGlyph(color: Color) {
 }
 
 @Composable
-private fun HomeHeader(summary: HomeSummary, onBackupClick: () -> Unit = {}) {
+private fun HomeHeader(summary: HomeSummary, onSettingsClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -278,16 +300,13 @@ private fun HomeHeader(summary: HomeSummary, onBackupClick: () -> Unit = {}) {
                 Spacer(Modifier.width(6.dp))
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(50))
+                        .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.18f))
-                        .clickable { onBackupClick() }
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .clickable { onSettingsClick() }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = "备份",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                    )
+                    GearGlyph(color = Color.White)
                 }
             }
 

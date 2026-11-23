@@ -5,6 +5,8 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
@@ -27,8 +29,8 @@ import com.aiaccounting.AccountingApp
 import com.aiaccounting.data.webdav.WebDavClient
 import com.aiaccounting.data.webdav.WebDavConfig
 import com.aiaccounting.data.webdav.WebDavSettingsStore
-import com.aiaccounting.ui.backup.BackupSheet
 import com.aiaccounting.ui.backup.WebDavSheet
+import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.components.HomeBottomBar
 import com.aiaccounting.ui.entry.EntrySheet
 import com.aiaccounting.ui.entry.EntryViewModel
@@ -61,10 +63,25 @@ fun AppRoot() {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showEntry by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var showBackup by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     var showInbox by remember { mutableStateOf(false) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    val versionName = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: "0.2.0"
+    }
+
+    val openNotificationSettings: () -> Unit = {
+        val opened = runCatching {
+            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }.isSuccess
+        if (!opened) {
+            Toast.makeText(context, "打不开系统设置，请手动去「通知使用权」里开启", Toast.LENGTH_LONG).show()
+        }
+    }
 
     val settingsStore = remember { WebDavSettingsStore(context) }
     var webDavConfig by remember { mutableStateOf(settingsStore.load()) }
@@ -180,6 +197,7 @@ fun AppRoot() {
         }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = PageBg,
         bottomBar = {
@@ -201,9 +219,9 @@ fun AppRoot() {
                     entryViewModel.startEdit(tx)
                     showEntry = true
                 },
-                onBackupClick = {
+                onSettingsClick = {
                     backupMessage = null
-                    showBackup = true
+                    showSettings = true
                 },
                 onQueryChange = homeViewModel::onQueryChange,
                 pendingCount = pendingTxs.size,
@@ -237,12 +255,14 @@ fun AppRoot() {
         )
     }
 
-    if (showBackup) {
-        BackupSheet(
+    if (showSettings) {
+        SettingsScreen(
             recordCount = homeState.sections.sumOf { it.items.size },
-            message = backupMessage,
+            pendingCount = pendingTxs.size,
             webDavConfigured = webDavConfig.isConfigured,
-            autoBackup = webDavConfig.autoBackup,
+            versionName = versionName,
+            message = backupMessage,
+            onBack = { showSettings = false },
             onExport = {
                 backupMessage = null
                 exportLauncher.launch("AI记账备份-${LocalDate.now()}.csv")
@@ -251,13 +271,19 @@ fun AppRoot() {
                 backupMessage = null
                 importLauncher.launch(arrayOf("text/*", "application/octet-stream"))
             },
-            onWebDavClick = {
+            onWebDav = {
                 backupMessage = null
-                showBackup = false
+                showSettings = false
                 showWebDav = true
             },
-            onDismiss = { showBackup = false },
+            onInbox = {
+                showSettings = false
+                showInbox = true
+            },
+            onNotificationPermission = openNotificationSettings,
+            modifier = Modifier.fillMaxSize(),
         )
+    }
     }
 
     if (showWebDav) {
@@ -280,14 +306,7 @@ fun AppRoot() {
             pending = pendingTxs,
             onConfirm = homeViewModel::confirmPending,
             onIgnore = homeViewModel::ignorePending,
-            onOpenPermission = {
-                val opened = runCatching {
-                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                }.isSuccess
-                if (!opened) {
-                    Toast.makeText(context, "打不开系统设置，请手动去「通知使用权」里开启", Toast.LENGTH_LONG).show()
-                }
-            },
+            onOpenPermission = openNotificationSettings,
             onDismiss = { showInbox = false },
         )
     }
