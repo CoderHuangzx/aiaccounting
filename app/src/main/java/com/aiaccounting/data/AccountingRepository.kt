@@ -5,6 +5,7 @@ import com.aiaccounting.data.local.AppDatabase
 import com.aiaccounting.data.local.CategoryEntity
 import com.aiaccounting.data.local.RawCaptureEntity
 import com.aiaccounting.data.local.TransactionEntity
+import com.aiaccounting.domain.AlipayBillParser
 import com.aiaccounting.domain.BackupCsv
 import com.aiaccounting.domain.DedupKey
 import com.aiaccounting.domain.Tx
@@ -76,6 +77,81 @@ class AccountingRepository(
     suspend fun defaultCategoryId(type: TxType): Long? =
         categoryDao.byKind(type.name).firstOrNull { it.name == "其他" }?.id
             ?: categoryDao.byKind(type.name).firstOrNull()?.id
+
+    // ── 账单导入 ────────────────────────────────────────────────────────
+
+    data class BillImportPreview(
+        val total: Int,
+        val importable: List<AlipayBillParser.BillRow>,
+        val duplicates: Int,
+    )
+
+    /** 先算一遍「能导几笔、重复几笔」，让用户确认后再落库。 */
+    suspend fun previewBillImport(
+        rows: List<AlipayBillParser.BillRow>,
+        windowMillis: Long = 10 * 60 * 1000,
+    ): BillImportPreview {
+        val existingKeys = mutableSetOf<String>()
+        val importable = rows.filter { row ->
+            val key = dedupKeyOf(row)
+            val duplicated = when {
+                key != null && transactionDao.findByDedupKey(key) != null -> true
+                else -> transactionDao.findSimilar(
+                    row.amountCents,
+                    row.occurredAt - windowMillis,
+                    row.occurredAt + windowMillis,
+                ) != null
+            }
+            if (!duplicated) existingKeys.add(key ?: "") else Unit
+            !duplicated
+        }
+        return BillImportPreview(
+            total = rows.size,
+            importable = importable,
+            duplicates = rows.size - importable.size,
+        )
+    }
+
+    /** 落库：来源标记 IMPORT，直接确认（账单本身就是已完成的交易）。 */
+    suspend fun applyBillImport(
+        rows: List<AlipayBillParser.BillRow>,
+        accountName: String = "支付宝",
+    ): Int {
+        if (rows.isEmpty()) return 0
+        ensureSeeded()
+        val accountId = accountIdByName(accountName)
+            ?: accountDao.all().firstOrNull()?.id
+            ?: return 0
+        val expenseCategory = defaultCategoryId(TxType.EXPENSE)
+        val incomeCategory = defaultCategoryId(TxType.INCOME)
+
+        var inserted = 0
+        db.withTransaction {
+            rows.forEach { row ->
+                val categoryId = (if (row.type == TxType.EXPENSE) expenseCategory else incomeCategory)
+                    ?: return@forEach
+                transactionDao.insert(
+                    TransactionEntity(
+                        type = row.type.name,
+                        amountCents = row.amountCents,
+                        occurredAt = row.occurredAt,
+                        categoryId = categoryId,
+                        accountId = accountId,
+                        merchant = row.counterparty ?: row.description,
+                        note = row.description?.takeIf { it != row.counterparty },
+                        source = TxSource.IMPORT.name,
+                        dedupKey = dedupKeyOf(row),
+                        status = "CONFIRMED",
+                    ),
+                )
+                inserted++
+            }
+        }
+        return inserted
+    }
+
+    private fun dedupKeyOf(row: AlipayBillParser.BillRow): String? =
+        row.tradeNo?.let { DedupKey.fromChannel(it) }
 
     fun observeTransactions(): Flow<List<Tx>> = combine(
         transactionDao.observeAll(),

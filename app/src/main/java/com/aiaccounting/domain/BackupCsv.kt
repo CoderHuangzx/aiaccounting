@@ -55,7 +55,7 @@ object BackupCsv {
                 },
                 row.dedupKey.orEmpty(),
             )
-            appendLine(cells.joinToString(",") { escape(it) })
+            appendLine(CsvCodec.encodeRow(cells))
         }
     }
 
@@ -64,9 +64,8 @@ object BackupCsv {
      * @throws IllegalArgumentException 带行号说明
      */
     fun decode(text: String, zone: ZoneId = ZoneId.systemDefault()): List<Row> {
-        val records = parseRecords(text)
+        val records = CsvCodec.parseNonBlank(text)
             .mapIndexed { index, cells -> index + 1 to cells }
-            .filter { (_, cells) -> cells.any { it.isNotBlank() } }
         if (records.isEmpty()) return emptyList()
 
         val headerCells = records.first().second
@@ -106,56 +105,5 @@ object BackupCsv {
     private fun parseAmount(raw: String): Long {
         val value = raw.toDoubleOrNull() ?: throw IllegalArgumentException("金额格式不对：$raw")
         return Math.round(value * 100)
-    }
-
-    private fun escape(cell: String): String {
-        val needsQuote = cell.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
-        return if (needsQuote) "\"" + cell.replace("\"", "\"\"") + "\"" else cell
-    }
-
-    /**
-     * 整篇扫描解析：引号内的换行属于字段内容，不能先按行切分。
-     * 支持字段内逗号、换行，以及 "" 形式的引号转义。
-     */
-    private fun parseRecords(text: String): List<List<String>> {
-        val records = mutableListOf<List<String>>()
-        var row = mutableListOf<String>()
-        val cell = StringBuilder()
-        var inQuotes = false
-        var index = 0
-
-        fun flushRow() {
-            row.add(cell.toString())
-            cell.setLength(0)
-            records.add(row)
-            row = mutableListOf()
-        }
-
-        while (index < text.length) {
-            val ch = text[index]
-            when {
-                inQuotes && ch == '"' && index + 1 < text.length && text[index + 1] == '"' -> {
-                    cell.append('"')
-                    index++
-                }
-
-                ch == '"' -> inQuotes = !inQuotes
-
-                ch == ',' && !inQuotes -> {
-                    row.add(cell.toString())
-                    cell.setLength(0)
-                }
-
-                (ch == '\n' || ch == '\r') && !inQuotes -> {
-                    if (ch == '\r' && index + 1 < text.length && text[index + 1] == '\n') index++
-                    flushRow()
-                }
-
-                else -> cell.append(ch)
-            }
-            index++
-        }
-        if (cell.isNotEmpty() || row.isNotEmpty()) flushRow()
-        return records
     }
 }

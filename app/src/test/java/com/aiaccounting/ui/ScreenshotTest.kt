@@ -242,6 +242,7 @@ class ScreenshotTest {
                     onBack = {},
                     onExport = {},
                     onImport = {},
+                    onImportBill = {},
                     onWebDav = {},
                     onInbox = {},
                     onNotificationPermission = {},

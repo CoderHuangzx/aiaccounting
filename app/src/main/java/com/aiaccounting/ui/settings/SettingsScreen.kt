@@ -51,6 +51,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onImportBill: () -> Unit,
     onWebDav: () -> Unit,
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
@@ -104,6 +105,12 @@ fun SettingsScreen(
                 title = "导入数据",
                 subtitle = "选择 CSV 文件，覆盖恢复全部记录",
                 onClick = onImport,
+            )
+            RowDivider()
+            SettingsRow(
+                title = "导入账单（支付宝）",
+                subtitle = "选支付宝导出的 CSV，补历史账并自动跳过重复",
+                onClick = onImportBill,
             )
             RowDivider()
             SettingsRow(

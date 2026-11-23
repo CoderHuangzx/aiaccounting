@@ -32,6 +32,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE dedupKey = :key LIMIT 1")
     suspend fun findByDedupKey(key: String): TransactionEntity?
 
+    /** 账单导入时用「金额 + 时间窗」兜底判重，能抓到手动记的、通知记的同金额记录。 */
+    @Query("SELECT * FROM transactions WHERE amountCents = :amount AND occurredAt BETWEEN :from AND :to LIMIT 1")
+    suspend fun findSimilar(amount: Long, from: Long, to: Long): TransactionEntity?
+
     @Query("SELECT COUNT(*) FROM transactions")
     suspend fun count(): Int
 

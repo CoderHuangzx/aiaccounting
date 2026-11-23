@@ -36,6 +36,7 @@ class SettingsScreenTest {
                     onBack = { backClicked = true },
                     onExport = { exported = true },
                     onImport = { imported = true },
+                    onImportBill = {},
                     onWebDav = {},
                     onInbox = {},
                     onNotificationPermission = {},

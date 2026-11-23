@@ -26,9 +26,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aiaccounting.AccountingApp
+import com.aiaccounting.data.AccountingRepository
 import com.aiaccounting.data.webdav.WebDavClient
 import com.aiaccounting.data.webdav.WebDavConfig
 import com.aiaccounting.data.webdav.WebDavSettingsStore
+import com.aiaccounting.domain.AlipayBillParser
 import com.aiaccounting.ui.backup.WebDavSheet
 import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.components.HomeBottomBar
@@ -66,6 +68,7 @@ fun AppRoot() {
     var showSettings by remember { mutableStateOf(false) }
     var showInbox by remember { mutableStateOf(false) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
+    var billPreview by remember { mutableStateOf<AccountingRepository.BillImportPreview?>(null) }
     val scope = rememberCoroutineScope()
 
     val versionName = remember {
@@ -178,6 +181,27 @@ fun AppRoot() {
         }
     }
 
+    /** 支付宝账单：选文件 → 解析 → 先给预览（能导几笔、重复几笔）→ 再落库。 */
+    val billLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val bytes = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.readBytes()
+                            ?: error("无法读取文件")
+                    }
+                    val text = AlipayBillParser.decode(bytes)
+                    val rows = AlipayBillParser.parse(text)
+                    require(rows.isNotEmpty()) { "文件里没有解析出任何交易" }
+                    repository.previewBillImport(rows)
+                }.onSuccess { billPreview = it }
+                    .onFailure { backupMessage = "解析失败：${it.message}" }
+            }
+        }
+    }
+
     LaunchedEffect(entryState.saved) {
         if (entryState.saved) {
             val wasEditing = entryState.isEditing
@@ -271,6 +295,10 @@ fun AppRoot() {
                 backupMessage = null
                 importLauncher.launch(arrayOf("text/*", "application/octet-stream"))
             },
+            onImportBill = {
+                backupMessage = null
+                billLauncher.launch(arrayOf("text/*", "text/csv", "application/octet-stream"))
+            },
             onWebDav = {
                 backupMessage = null
                 showSettings = false
@@ -308,6 +336,43 @@ fun AppRoot() {
             onIgnore = homeViewModel::ignorePending,
             onOpenPermission = openNotificationSettings,
             onDismiss = { showInbox = false },
+        )
+    }
+
+    billPreview?.let { preview ->
+        AlertDialog(
+            onDismissRequest = { billPreview = null },
+            title = { Text("导入支付宝账单") },
+            text = {
+                Text(
+                    "共解析 ${preview.total} 笔：\n" +
+                        "可导入 ${preview.importable.size} 笔\n" +
+                        "${preview.duplicates} 笔已存在，会自动跳过",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val rows = preview.importable
+                        billPreview = null
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) { repository.applyBillImport(rows) }
+                            }.onSuccess { count ->
+                                backupMessage = "已导入 $count 笔账单"
+                                autoBackupIfNeeded()
+                            }.onFailure { error ->
+                                backupMessage = "导入失败：${error.message}"
+                            }
+                        }
+                    },
+                ) {
+                    Text("确认导入")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { billPreview = null }) { Text("取消") }
+            },
         )
     }
 
