@@ -323,11 +323,11 @@ fun AppRoot() {
                 backupMessage = null
                 exportLauncher.launch("AI记账备份-${LocalDate.now()}.csv")
             },
-            onImport = {
+            onImportBackup = {
                 backupMessage = null
                 importLauncher.launch(arrayOf("text/*", "application/octet-stream"))
             },
-            onImportBill = {
+            onImportAlipay = {
                 backupMessage = null
                 billLauncher.launch(arrayOf("text/*", "text/csv", "application/octet-stream"))
             },
@@ -341,11 +341,13 @@ fun AppRoot() {
                     ),
                 )
             },
-            onWebDav = {
+            onOpenWebDav = {
                 backupMessage = null
                 showSettings = false
                 showWebDav = true
             },
+            onUploadCloud = { uploadToCloud(false) },
+            onDownloadCloud = downloadFromCloud,
             onInbox = {
                 showSettings = false
                 showInbox = true

@@ -19,12 +19,15 @@ class SettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    @Test
-    fun 设置页展示数据入口并回调() {
-        var exported = false
-        var imported = false
-        var backClicked = false
+    private var exported = false
+    private var importedAlipay = false
+    private var importedWeChat = false
+    private var importedBackup = false
+    private var openedWebDav = false
+    private var openedInbox = false
+    private var backClicked = false
 
+    private fun content() {
         composeRule.setContent {
             AIAccountingTheme {
                 SettingsScreen(
@@ -35,29 +38,88 @@ class SettingsScreenTest {
                     message = null,
                     onBack = { backClicked = true },
                     onExport = { exported = true },
-                    onImport = { imported = true },
-                    onImportBill = {},
-                    onImportWeChat = {},
-                    onWebDav = {},
-                    onInbox = {},
+                    onImportBackup = { importedBackup = true },
+                    onImportAlipay = { importedAlipay = true },
+                    onImportWeChat = { importedWeChat = true },
+                    onOpenWebDav = { openedWebDav = true },
+                    onUploadCloud = {},
+                    onDownloadCloud = {},
+                    onInbox = { openedInbox = true },
                     onNotificationPermission = {},
                     onCaptureLog = {},
                 )
             }
         }
+    }
 
-        composeRule.onNodeWithText("导出数据").assertIsDisplayed()
+    @Test
+    fun 主页只保留三个入口() {
+        content()
+
+        composeRule.onNodeWithText("自动记账").assertIsDisplayed()
         composeRule.onNodeWithText("导入数据").assertIsDisplayed()
-        composeRule.onNodeWithText("云备份（WebDAV）").assertIsDisplayed()
-        composeRule.onNodeWithText("待确认收件箱").assertIsDisplayed()
+        composeRule.onNodeWithText("导出数据").assertIsDisplayed()
         composeRule.onNodeWithText("AI 记账 v0.2.0").assertIsDisplayed()
+    }
 
-        composeRule.onNodeWithText("导出数据").performClick()
-        assertTrue(exported)
+    @Test
+    fun 导入页能触发支付宝与微信导入() {
+        content()
 
         composeRule.onNodeWithText("导入数据").performClick()
-        assertTrue(imported)
+        composeRule.onNodeWithText("支付宝账单").assertIsDisplayed()
+        composeRule.onNodeWithText("微信账单").assertIsDisplayed()
+        composeRule.onNodeWithText("恢复备份文件").assertIsDisplayed()
 
+        composeRule.onNodeWithText("支付宝账单").performClick()
+        assertTrue(importedAlipay)
+
+        composeRule.onNodeWithText("微信账单").performClick()
+        assertTrue(importedWeChat)
+    }
+
+    @Test
+    fun 导入页能打开教程并返回() {
+        content()
+
+        composeRule.onNodeWithText("导入数据").performClick()
+        composeRule.onNodeWithTag("tutorialAlipay").performClick()
+        composeRule.onNodeWithText("支付宝账单导入教程").assertIsDisplayed()
+        composeRule.onNodeWithText("选文件导入").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("settingsBack").performClick()
+        composeRule.onNodeWithText("导入数据").assertIsDisplayed()   // 回到导入页标题所在列表
+    }
+
+    @Test
+    fun 导出页能导出与进云备份设置() {
+        content()
+
+        composeRule.onNodeWithText("导出数据").performClick()
+        composeRule.onNodeWithText("导出 CSV 文件").assertIsDisplayed()
+        composeRule.onNodeWithText("导出 CSV 文件").performClick()
+        assertTrue(exported)
+
+        composeRule.onNodeWithText("云备份设置（WebDAV）").performClick()
+        assertTrue(openedWebDav)
+    }
+
+    @Test
+    fun 自动记账页能进收件箱() {
+        content()
+
+        composeRule.onNodeWithText("自动记账").performClick()
+        composeRule.onNodeWithText("待确认收件箱").assertIsDisplayed()
+        composeRule.onNodeWithText("通知读取权限").assertIsDisplayed()
+        composeRule.onNodeWithText("捕捉日志").assertIsDisplayed()
+
+        composeRule.onNodeWithText("待确认收件箱").performClick()
+        assertTrue(openedInbox)
+    }
+
+    @Test
+    fun 主页返回会回调() {
+        content()
         composeRule.onNodeWithTag("settingsBack").performClick()
         assertTrue(backClicked)
     }
