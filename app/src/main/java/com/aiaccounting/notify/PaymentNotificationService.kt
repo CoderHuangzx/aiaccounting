@@ -6,6 +6,7 @@ import android.service.notification.StatusBarNotification
 import com.aiaccounting.AccountingApp
 import com.aiaccounting.domain.PaymentParser
 import com.aiaccounting.domain.TxSource
+import com.aiaccounting.overlay.OverlayAnchor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +31,11 @@ class PaymentNotificationService : NotificationListenerService() {
      */
     override fun onListenerConnected() {
         super.onListenerConnected()
+
+        // 系统把监听器重新绑上来了 → 顺手把隐形锚点也挂回去。
+        // App 被划掉、进程被回收后，这条路径是「在其他应用上层」状态恢复的关键。
+        runCatching { OverlayAnchor.ensureAttached(this) }
+
         runCatching {
             val cutoff = System.currentTimeMillis() - 15 * 60 * 1000
             activeNotifications?.forEach { sbn ->
