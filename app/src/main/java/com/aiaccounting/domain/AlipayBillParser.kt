@@ -14,17 +14,6 @@ import java.time.format.DateTimeFormatter
  */
 object AlipayBillParser {
 
-    data class BillRow(
-        val occurredAt: Long,
-        val amountCents: Long,
-        val type: TxType,
-        /** 交易对方，通常是商户名。 */
-        val counterparty: String?,
-        /** 商品名称。 */
-        val description: String?,
-        /** 交易号，用来做去重指纹。 */
-        val tradeNo: String?,
-    )
 
     private val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 

@@ -5,7 +5,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.aiaccounting.data.local.AppDatabase
-import com.aiaccounting.domain.AlipayBillParser
+import com.aiaccounting.domain.BillRow
 import com.aiaccounting.domain.TxType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -54,7 +54,7 @@ class BillImportTest {
         merchant: String = "瑞幸咖啡",
         tradeNo: String? = null,
         hour: Int = 9,
-    ) = AlipayBillParser.BillRow(
+    ) = BillRow(
         occurredAt = millis(day, hour),
         amountCents = amount,
         type = type,

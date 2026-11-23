@@ -37,6 +37,7 @@ class SettingsScreenTest {
                     onExport = { exported = true },
                     onImport = { imported = true },
                     onImportBill = {},
+                    onImportWeChat = {},
                     onWebDav = {},
                     onInbox = {},
                     onNotificationPermission = {},

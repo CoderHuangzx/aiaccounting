@@ -6,6 +6,7 @@ import com.aiaccounting.data.local.CategoryEntity
 import com.aiaccounting.data.local.RawCaptureEntity
 import com.aiaccounting.data.local.TransactionEntity
 import com.aiaccounting.domain.AlipayBillParser
+import com.aiaccounting.domain.BillRow
 import com.aiaccounting.domain.BackupCsv
 import com.aiaccounting.domain.DedupKey
 import com.aiaccounting.domain.Tx
@@ -82,13 +83,13 @@ class AccountingRepository(
 
     data class BillImportPreview(
         val total: Int,
-        val importable: List<AlipayBillParser.BillRow>,
+        val importable: List<BillRow>,
         val duplicates: Int,
     )
 
     /** 先算一遍「能导几笔、重复几笔」，让用户确认后再落库。 */
     suspend fun previewBillImport(
-        rows: List<AlipayBillParser.BillRow>,
+        rows: List<BillRow>,
         windowMillis: Long = 10 * 60 * 1000,
     ): BillImportPreview {
         val existingKeys = mutableSetOf<String>()
@@ -114,7 +115,7 @@ class AccountingRepository(
 
     /** 落库：来源标记 IMPORT，直接确认（账单本身就是已完成的交易）。 */
     suspend fun applyBillImport(
-        rows: List<AlipayBillParser.BillRow>,
+        rows: List<BillRow>,
         accountName: String = "支付宝",
     ): Int {
         if (rows.isEmpty()) return 0
@@ -150,7 +151,7 @@ class AccountingRepository(
         return inserted
     }
 
-    private fun dedupKeyOf(row: AlipayBillParser.BillRow): String? =
+    private fun dedupKeyOf(row: BillRow): String? =
         row.tradeNo?.let { DedupKey.fromChannel(it) }
 
     fun observeTransactions(): Flow<List<Tx>> = combine(

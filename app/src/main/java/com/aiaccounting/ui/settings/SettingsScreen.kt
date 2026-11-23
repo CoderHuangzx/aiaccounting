@@ -52,6 +52,7 @@ fun SettingsScreen(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onImportBill: () -> Unit,
+    onImportWeChat: () -> Unit,
     onWebDav: () -> Unit,
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
@@ -111,6 +112,12 @@ fun SettingsScreen(
                 title = "导入账单（支付宝）",
                 subtitle = "选支付宝导出的 CSV，补历史账并自动跳过重复",
                 onClick = onImportBill,
+            )
+            RowDivider()
+            SettingsRow(
+                title = "导入账单（微信）",
+                subtitle = "选微信导出的 xlsx，补历史账并自动跳过重复",
+                onClick = onImportWeChat,
             )
             RowDivider()
             SettingsRow(

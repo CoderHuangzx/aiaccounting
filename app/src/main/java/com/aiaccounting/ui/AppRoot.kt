@@ -31,6 +31,8 @@ import com.aiaccounting.data.webdav.WebDavClient
 import com.aiaccounting.data.webdav.WebDavConfig
 import com.aiaccounting.data.webdav.WebDavSettingsStore
 import com.aiaccounting.domain.AlipayBillParser
+import com.aiaccounting.domain.WeChatBillParser
+import com.aiaccounting.domain.XlsxReader
 import com.aiaccounting.ui.backup.WebDavSheet
 import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.components.HomeBottomBar
@@ -69,6 +71,7 @@ fun AppRoot() {
     var showInbox by remember { mutableStateOf(false) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
     var billPreview by remember { mutableStateOf<AccountingRepository.BillImportPreview?>(null) }
+    var billSourceName by remember { mutableStateOf("支付宝") }
     val scope = rememberCoroutineScope()
 
     val versionName = remember {
@@ -196,7 +199,33 @@ fun AppRoot() {
                     val rows = AlipayBillParser.parse(text)
                     require(rows.isNotEmpty()) { "文件里没有解析出任何交易" }
                     repository.previewBillImport(rows)
-                }.onSuccess { billPreview = it }
+                }.onSuccess {
+                    billSourceName = "支付宝"
+                    billPreview = it
+                }
+                    .onFailure { backupMessage = "解析失败：${it.message}" }
+            }
+        }
+    }
+
+    /** 微信账单：xlsx → 自己解 zip + XML → 同一套预览/落库流程。 */
+    val weChatLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val bytes = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.readBytes()
+                            ?: error("无法读取文件")
+                    }
+                    val rows = WeChatBillParser.parse(XlsxReader.readFirstSheet(bytes))
+                    require(rows.isNotEmpty()) { "文件里没有解析出任何交易" }
+                    repository.previewBillImport(rows)
+                }.onSuccess {
+                    billSourceName = "微信"
+                    billPreview = it
+                }
                     .onFailure { backupMessage = "解析失败：${it.message}" }
             }
         }
@@ -299,6 +328,16 @@ fun AppRoot() {
                 backupMessage = null
                 billLauncher.launch(arrayOf("text/*", "text/csv", "application/octet-stream"))
             },
+            onImportWeChat = {
+                backupMessage = null
+                weChatLauncher.launch(
+                    arrayOf(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "application/octet-stream",
+                        "*/*",
+                    ),
+                )
+            },
             onWebDav = {
                 backupMessage = null
                 showSettings = false
@@ -340,9 +379,10 @@ fun AppRoot() {
     }
 
     billPreview?.let { preview ->
+        val source = billSourceName
         AlertDialog(
             onDismissRequest = { billPreview = null },
-            title = { Text("导入支付宝账单") },
+            title = { Text("导入${source}账单") },
             text = {
                 Text(
                     "共解析 ${preview.total} 笔：\n" +
@@ -357,7 +397,9 @@ fun AppRoot() {
                         billPreview = null
                         scope.launch {
                             runCatching {
-                                withContext(Dispatchers.IO) { repository.applyBillImport(rows) }
+                                withContext(Dispatchers.IO) {
+                                    repository.applyBillImport(rows, accountName = source)
+                                }
                             }.onSuccess { count ->
                                 backupMessage = "已导入 $count 笔账单"
                                 autoBackupIfNeeded()

@@ -243,6 +243,7 @@ class ScreenshotTest {
                     onExport = {},
                     onImport = {},
                     onImportBill = {},
+                    onImportWeChat = {},
                     onWebDav = {},
                     onInbox = {},
                     onNotificationPermission = {},
