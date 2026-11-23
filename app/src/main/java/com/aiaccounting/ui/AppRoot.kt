@@ -22,7 +22,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aiaccounting.AccountingApp
+import com.aiaccounting.data.webdav.WebDavClient
+import com.aiaccounting.data.webdav.WebDavConfig
+import com.aiaccounting.data.webdav.WebDavSettingsStore
 import com.aiaccounting.ui.backup.BackupSheet
+import com.aiaccounting.ui.backup.WebDavSheet
 import com.aiaccounting.ui.components.HomeBottomBar
 import com.aiaccounting.ui.entry.EntrySheet
 import com.aiaccounting.ui.entry.EntryViewModel
@@ -57,6 +61,60 @@ fun AppRoot() {
     var backupMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
+    val settingsStore = remember { WebDavSettingsStore(context) }
+    var webDavConfig by remember { mutableStateOf(settingsStore.load()) }
+    var showWebDav by remember { mutableStateOf(false) }
+    var webDavBusy by remember { mutableStateOf(false) }
+
+    /** 把当前数据推到云端。automatic = true 时不覆盖界面上的提示，避免打扰。 */
+    val uploadToCloud: (Boolean) -> Unit = { automatic ->
+        val config = webDavConfig
+        if (!config.isConfigured) {
+            if (!automatic) backupMessage = "先填好 WebDAV 地址、账号和应用密码"
+        } else {
+            scope.launch {
+                if (!automatic) webDavBusy = true
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val csv = repository.exportBackupCsv()
+                        WebDavClient(config).upload(csv)
+                        csv.lineSequence().count { it.isNotBlank() } - 1
+                    }
+                }.onSuccess { count ->
+                    if (!automatic) backupMessage = "已上传 $count 条记录到云端"
+                }.onFailure { error ->
+                    if (!automatic) backupMessage = "上传失败：${error.message}"
+                }
+                if (!automatic) webDavBusy = false
+            }
+        }
+    }
+
+    val downloadFromCloud: () -> Unit = {
+        val config = webDavConfig
+        if (!config.isConfigured) {
+            backupMessage = "先填好 WebDAV 地址、账号和应用密码"
+        } else {
+            scope.launch {
+                webDavBusy = true
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val text = WebDavClient(config).download() ?: error("云端还没有备份文件")
+                        repository.importBackupCsv(text)
+                    }
+                }.onSuccess { count -> backupMessage = "已从云端恢复 $count 条记录" }
+                    .onFailure { error -> backupMessage = "恢复失败：${error.message}" }
+                webDavBusy = false
+            }
+        }
+    }
+
+    val autoBackupIfNeeded: () -> Unit = {
+        if (webDavConfig.autoBackup && webDavConfig.isConfigured) {
+            uploadToCloud(true)
+        }
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv"),
     ) { uri ->
@@ -89,7 +147,10 @@ fun AppRoot() {
                     }
                     val count = repository.importBackupCsv(text)
                     "已恢复 $count 条记录"
-                }.onSuccess { backupMessage = it }
+                }.onSuccess {
+                    backupMessage = it
+                    autoBackupIfNeeded()
+                }
                     .onFailure { backupMessage = "导入失败：${it.message}" }
             }
         }
@@ -101,6 +162,7 @@ fun AppRoot() {
             showEntry = false
             entryViewModel.reset()
             Toast.makeText(context, if (wasEditing) "已保存" else "已记一笔", Toast.LENGTH_SHORT).show()
+            autoBackupIfNeeded()
         }
     }
 
@@ -109,6 +171,7 @@ fun AppRoot() {
             showEntry = false
             entryViewModel.reset()
             Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
+            autoBackupIfNeeded()
         }
     }
 
@@ -170,6 +233,8 @@ fun AppRoot() {
         BackupSheet(
             recordCount = homeState.sections.sumOf { it.items.size },
             message = backupMessage,
+            webDavConfigured = webDavConfig.isConfigured,
+            autoBackup = webDavConfig.autoBackup,
             onExport = {
                 backupMessage = null
                 exportLauncher.launch("AI记账备份-${LocalDate.now()}.csv")
@@ -178,7 +243,27 @@ fun AppRoot() {
                 backupMessage = null
                 importLauncher.launch(arrayOf("text/*", "application/octet-stream"))
             },
+            onWebDavClick = {
+                backupMessage = null
+                showBackup = false
+                showWebDav = true
+            },
             onDismiss = { showBackup = false },
+        )
+    }
+
+    if (showWebDav) {
+        WebDavSheet(
+            initial = webDavConfig,
+            busy = webDavBusy,
+            message = backupMessage,
+            onSave = { config ->
+                settingsStore.save(config)
+                webDavConfig = config
+            },
+            onUpload = { uploadToCloud(false) },
+            onDownload = downloadFromCloud,
+            onDismiss = { showWebDav = false },
         )
     }
 

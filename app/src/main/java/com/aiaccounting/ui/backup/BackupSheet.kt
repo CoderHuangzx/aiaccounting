@@ -41,8 +41,11 @@ import com.aiaccounting.ui.theme.TextSub
 fun BackupSheet(
     recordCount: Int,
     message: String?,
+    webDavConfigured: Boolean,
+    autoBackup: Boolean,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onWebDavClick: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -91,6 +94,20 @@ fun BackupSheet(
                 onClick = onImport,
             )
 
+            Spacer(Modifier.height(10.dp))
+
+            ActionRow(
+                title = "云备份（WebDAV）",
+                subtitle = when {
+                    !webDavConfigured -> "未配置，点此填写坚果云地址与账号"
+                    autoBackup -> "已配置 · 每次改动后自动上传"
+                    else -> "已配置 · 自动备份未开启"
+                },
+                primary = false,
+                trailing = "设置",
+                onClick = onWebDavClick,
+            )
+
             if (message != null) {
                 Spacer(Modifier.height(14.dp))
                 val isError = message.startsWith("失败") || message.startsWith("导出失败") || message.startsWith("导入失败")
@@ -123,6 +140,7 @@ private fun ActionRow(
     subtitle: String,
     primary: Boolean,
     onClick: () -> Unit,
+    trailing: String = if (primary) "导出" else "选择文件",
 ) {
     Row(
         modifier = Modifier
@@ -149,7 +167,7 @@ private fun ActionRow(
             )
         }
         Text(
-            text = if (primary) "导出" else "选择文件",
+            text = trailing,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = if (primary) Color.White else BrandBlue,
