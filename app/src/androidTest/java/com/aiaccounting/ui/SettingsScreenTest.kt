@@ -1,0 +1,128 @@
+package com.aiaccounting.ui
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.aiaccounting.ui.settings.SettingsScreen
+import com.aiaccounting.ui.theme.AIAccountingTheme
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class SettingsScreenTest {
+
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private var exported = false
+    private var importedAlipay = false
+    private var importedWeChat = false
+    private var importedBackup = false
+    private var openedWebDav = false
+    private var openedInbox = false
+    private var backClicked = false
+
+    private fun content() {
+        composeRule.setContent {
+            AIAccountingTheme {
+                SettingsScreen(
+                    recordCount = 12,
+                    pendingCount = 3,
+                    webDavConfigured = false,
+                    versionName = "0.2.0",
+                    message = null,
+                    onBack = { backClicked = true },
+                    onExport = { exported = true },
+                    onImportBackup = { importedBackup = true },
+                    onImportAlipay = { importedAlipay = true },
+                    onImportWeChat = { importedWeChat = true },
+                    onOpenWebDav = { openedWebDav = true },
+                    onUploadCloud = {},
+                    onDownloadCloud = {},
+                    onInbox = { openedInbox = true },
+                    onNotificationPermission = {},
+                    onCaptureLog = {},
+                    onOpenAccessibility = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun 主页只保留三个入口() {
+        content()
+
+        composeRule.onNodeWithText("自动记账").assertIsDisplayed()
+        composeRule.onNodeWithText("导入数据").assertIsDisplayed()
+        composeRule.onNodeWithText("导出数据").assertIsDisplayed()
+        composeRule.onNodeWithText("AI 记账 v0.2.0").assertIsDisplayed()
+    }
+
+    @Test
+    fun 导入页能触发支付宝与微信导入() {
+        content()
+
+        composeRule.onNodeWithText("导入数据").performClick()
+        composeRule.onNodeWithText("支付宝账单").assertIsDisplayed()
+        composeRule.onNodeWithText("微信账单").assertIsDisplayed()
+        composeRule.onNodeWithText("恢复备份文件").assertIsDisplayed()
+
+        composeRule.onNodeWithText("支付宝账单").performClick()
+        assertTrue(importedAlipay)
+
+        composeRule.onNodeWithText("微信账单").performClick()
+        assertTrue(importedWeChat)
+    }
+
+    @Test
+    fun 导入页能打开教程并返回() {
+        content()
+
+        composeRule.onNodeWithText("导入数据").performClick()
+        composeRule.onNodeWithTag("tutorialAlipay").performClick()
+        composeRule.onNodeWithText("支付宝账单导入教程").assertIsDisplayed()
+        composeRule.onNodeWithText("选文件导入").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("settingsBack").performClick()
+        composeRule.onNodeWithText("导入数据").assertIsDisplayed()   // 回到导入页标题所在列表
+    }
+
+    @Test
+    fun 导出页能导出与进云备份设置() {
+        content()
+
+        composeRule.onNodeWithText("导出数据").performClick()
+        composeRule.onNodeWithText("导出 CSV 文件").assertIsDisplayed()
+        composeRule.onNodeWithText("导出 CSV 文件").performClick()
+        assertTrue(exported)
+
+        composeRule.onNodeWithText("云备份设置（WebDAV）").performClick()
+        assertTrue(openedWebDav)
+    }
+
+    @Test
+    fun 自动记账页能进收件箱() {
+        content()
+
+        composeRule.onNodeWithText("自动记账").performClick()
+        composeRule.onNodeWithText("待确认收件箱").assertIsDisplayed()
+        composeRule.onNodeWithText("通知读取权限").assertIsDisplayed()
+        composeRule.onNodeWithText("捕捉日志").assertIsDisplayed()
+
+        composeRule.onNodeWithText("待确认收件箱").performClick()
+        assertTrue(openedInbox)
+    }
+
+
+    @Test
+    fun 主页返回会回调() {
+        content()
+        composeRule.onNodeWithTag("settingsBack").performClick()
+        assertTrue(backClicked)
+    }
+}

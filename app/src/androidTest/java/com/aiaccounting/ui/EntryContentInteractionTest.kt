@@ -271,4 +271,65 @@ class EntryContentInteractionTest {
         composeRule.onNodeWithText("编辑日期").assertDoesNotExist()
         assertNull(picked)
     }
+
+    @Test
+    fun 编辑态显示保存与删除并回调删除() {
+        var deleteClicked = false
+
+        composeRule.setContent {
+            AIAccountingTheme {
+                EntryContent(
+                    state = EntryUiState(
+                        type = TxType.EXPENSE,
+                        expression = "35.00",
+                        amountCents = 3500,
+                        categoryId = 1,
+                        accounts = accounts,
+                        accountId = 1,
+                        categories = expenseCategories,
+                        editingId = 7L,
+                    ),
+                    onKey = {},
+                    onType = {},
+                    onCategory = {},
+                    onAccount = {},
+                    onNote = {},
+                    onDelete = { deleteClicked = true },
+                    onSave = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("编辑记录").assertIsDisplayed()
+        composeRule.onNodeWithText("保存").assertIsDisplayed()
+        composeRule.onNodeWithTag("entryDelete").performClick()
+        assertTrue(deleteClicked)
+    }
+
+    @Test
+    fun 新建态不显示编辑记录与删除() {
+        composeRule.setContent {
+            AIAccountingTheme {
+                EntryContent(
+                    state = EntryUiState(
+                        type = TxType.EXPENSE,
+                        categories = expenseCategories,
+                        categoryId = 1,
+                        accounts = accounts,
+                        accountId = 1,
+                    ),
+                    onKey = {},
+                    onType = {},
+                    onCategory = {},
+                    onAccount = {},
+                    onNote = {},
+                    onSave = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("编辑记录").assertDoesNotExist()
+        composeRule.onNodeWithTag("entryDelete").assertDoesNotExist()
+        composeRule.onNodeWithText("完成").assertIsDisplayed()
+    }
 }

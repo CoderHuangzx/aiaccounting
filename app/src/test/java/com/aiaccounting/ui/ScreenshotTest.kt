@@ -24,6 +24,7 @@ import com.aiaccounting.ui.components.HomeBottomBar
 import com.aiaccounting.ui.entry.EntryContent
 import com.aiaccounting.ui.entry.EntryUiState
 import com.aiaccounting.ui.entry.DatePickerPanel
+import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.home.HomeScreen
 import com.aiaccounting.ui.home.HomeUiState
 import com.aiaccounting.ui.report.ReportScreen
@@ -224,6 +225,33 @@ class ScreenshotTest {
                         zone = zone,
                     )
                 }
+            }
+        }
+    }
+
+    @Test
+    fun settings() {
+        paparazzi.snapshot(name = "settings") {
+            AIAccountingTheme {
+                SettingsScreen(
+                    recordCount = 42,
+                    pendingCount = 3,
+                    webDavConfigured = true,
+                    versionName = "0.2.0",
+                    message = null,
+                    onBack = {},
+                    onExport = {},
+                    onImportBackup = {},
+                    onImportAlipay = {},
+                    onImportWeChat = {},
+                    onOpenWebDav = {},
+                    onUploadCloud = {},
+                    onDownloadCloud = {},
+                    onInbox = {},
+                    onNotificationPermission = {},
+                    onCaptureLog = {},
+                    onOpenAccessibility = {},
+                )
             }
         }
     }

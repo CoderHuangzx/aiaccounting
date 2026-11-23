@@ -5,10 +5,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiaccounting.core.Money
 import com.aiaccounting.data.AccountingRepository
 import com.aiaccounting.data.local.AccountEntity
 import com.aiaccounting.data.local.CategoryEntity
 import com.aiaccounting.domain.AmountInput
+import com.aiaccounting.domain.Tx
 import com.aiaccounting.domain.TxType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +30,14 @@ data class EntryUiState(
     val accounts: List<AccountEntity> = emptyList(),
     val saving: Boolean = false,
     val saved: Boolean = false,
+    val deleted: Boolean = false,
+    /** 非空表示在编辑已有记录，而不是新建。 */
+    val editingId: Long? = null,
 ) {
     val canSave: Boolean
         get() = amountCents != null && amountCents > 0 && categoryId != null && accountId != null && !saving
+
+    val isEditing: Boolean get() = editingId != null
 }
 
 class EntryViewModel(private val repository: AccountingRepository) : ViewModel() {
@@ -67,6 +74,27 @@ class EntryViewModel(private val repository: AccountingRepository) : ViewModel()
     /** 用户在日期选择器里确认了新的记账时间。 */
     fun onDateTimeChange(millis: Long) = _state.update { it.copy(occurredAt = millis) }
 
+    /** 点某条流水进来编辑：把已有值回填到面板。 */
+    fun startEdit(tx: Tx) {
+        viewModelScope.launch {
+            repository.ensureSeeded()
+            val categories = repository.categoriesOf(tx.type)
+            val accounts = repository.accounts()
+            _state.value = EntryUiState(
+                type = tx.type,
+                expression = Money.plain(tx.amountCents),
+                amountCents = tx.amountCents,
+                categoryId = tx.categoryId,
+                accountId = tx.accountId,
+                note = tx.note.orEmpty(),
+                occurredAt = tx.occurredAt,
+                categories = categories,
+                accounts = accounts,
+                editingId = tx.id,
+            )
+        }
+    }
+
     fun save() {
         val current = _state.value
         val amount = current.amountCents ?: return
@@ -76,15 +104,37 @@ class EntryViewModel(private val repository: AccountingRepository) : ViewModel()
 
         _state.update { it.copy(saving = true) }
         viewModelScope.launch {
-            repository.addManualTransaction(
-                type = current.type,
-                amountCents = amount,
-                categoryId = categoryId,
-                accountId = accountId,
-                occurredAt = current.occurredAt,
-                note = current.note.takeIf { text -> text.isNotBlank() },
-            )
+            val editingId = current.editingId
+            if (editingId != null) {
+                repository.updateTransaction(
+                    id = editingId,
+                    type = current.type,
+                    amountCents = amount,
+                    categoryId = categoryId,
+                    accountId = accountId,
+                    occurredAt = current.occurredAt,
+                    note = current.note.takeIf { text -> text.isNotBlank() },
+                )
+            } else {
+                repository.addManualTransaction(
+                    type = current.type,
+                    amountCents = amount,
+                    categoryId = categoryId,
+                    accountId = accountId,
+                    occurredAt = current.occurredAt,
+                    note = current.note.takeIf { text -> text.isNotBlank() },
+                )
+            }
             _state.update { it.copy(saving = false, saved = true) }
+        }
+    }
+
+    /** 删除正在编辑的这条记录。 */
+    fun delete() {
+        val editingId = _state.value.editingId ?: return
+        viewModelScope.launch {
+            repository.deleteTransaction(editingId)
+            _state.update { it.copy(deleted = true) }
         }
     }
 

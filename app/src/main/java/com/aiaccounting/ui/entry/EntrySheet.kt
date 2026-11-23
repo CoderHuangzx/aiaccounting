@@ -50,6 +50,7 @@ import com.aiaccounting.core.Money
 import com.aiaccounting.data.local.CategoryEntity
 import com.aiaccounting.domain.TxType
 import com.aiaccounting.ui.components.SegmentToggle
+import com.aiaccounting.ui.theme.AlertRed
 import com.aiaccounting.ui.theme.BrandBlue
 import com.aiaccounting.ui.theme.BrandBlueDeep
 import com.aiaccounting.ui.theme.BrandBlueSoft
@@ -78,6 +79,7 @@ fun EntrySheet(
     onAccount: (Long) -> Unit,
     onNote: (String) -> Unit,
     onDateChange: (Long) -> Unit,
+    onDelete: () -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -97,6 +99,7 @@ fun EntrySheet(
             onAccount = onAccount,
             onNote = onNote,
             onDateChange = onDateChange,
+            onDelete = onDelete,
             onSave = onSave,
         )
     }
@@ -112,6 +115,7 @@ fun EntryContent(
     onAccount: (Long) -> Unit,
     onNote: (String) -> Unit,
     onDateChange: (Long) -> Unit = {},
+    onDelete: () -> Unit = {},
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -125,6 +129,25 @@ fun EntryContent(
                 .padding(horizontal = 18.dp)
                 .padding(bottom = 18.dp),
         ) {
+            if (state.isEditing) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "编辑记录", fontSize = 13.sp, color = TextSub)
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "删除",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AlertRed,
+                        modifier = Modifier
+                            .testTag("entryDelete")
+                            .clip(RoundedCornerShape(50))
+                            .clickable { onDelete() }
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SegmentToggle(
                     options = listOf("支出", "收入"),
@@ -481,7 +504,11 @@ private fun CompleteKey(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (state.saving) "保存中" else "完成",
+            text = when {
+                state.saving -> "保存中"
+                state.isEditing -> "保存"
+                else -> "完成"
+            },
             color = Color.White,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
