@@ -237,7 +237,7 @@ class ScreenshotTest {
                     recordCount = 42,
                     pendingCount = 3,
                     webDavConfigured = true,
-                    versionName = "0.2.0",
+                    versionName = "0.1.1",
                     message = null,
                     onBack = {},
                     onExport = {},
