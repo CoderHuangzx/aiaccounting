@@ -281,6 +281,14 @@ class AccountingRepository(
 
         transactionDao.findByDedupKey(key)?.let { return it.id }
 
+        // 第二道判重：同一笔订单可能被通知和读屏各抓一次（商户名不同、时间差几十分钟），
+        // 光靠指纹拦不住，这里按「金额 + 2 小时窗 + 自动来源」再兜一次。
+        transactionDao.findAutoDuplicate(
+            amount = amountCents,
+            from = occurredAt - CROSS_SOURCE_WINDOW_MS,
+            to = occurredAt + CROSS_SOURCE_WINDOW_MS,
+        )?.let { return it.id }
+
         return transactionDao.insert(
             TransactionEntity(
                 type = type.name,
@@ -298,6 +306,17 @@ class AccountingRepository(
     }
 
     suspend fun transactionCount(): Int = transactionDao.count()
+
+    private companion object {
+        /**
+         * 跨来源判重的时间窗。
+         *
+         * 通知和读屏抓到同一笔可能相差几十分钟（取决于用户什么时候点开订单页），
+         * 10 分钟不够用；放太大又会把「同一天两笔同价订单」误合并。
+         * 2 小时是当前取舍——宁可少记一笔重复的，也不要把两笔真账并成一笔。
+         */
+        const val CROSS_SOURCE_WINDOW_MS = 2 * 60 * 60 * 1000L
+    }
 
     /** 导出全部流水为 CSV 文本（用分类名/账户名，换设备也能恢复）。 */
     suspend fun exportBackupCsv(): String {

@@ -36,6 +36,19 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE amountCents = :amount AND occurredAt BETWEEN :from AND :to LIMIT 1")
     suspend fun findSimilar(amount: Long, from: Long, to: Long): TransactionEntity?
 
+    /**
+     * 跨来源判重：同金额、同时间窗、**自动捕捉来的**记录。
+     *
+     * 同一笔美团订单可能被两条通道各抓一次——通知在扣款时来（商户名是「美团」），
+     * 读屏在用户后来打开订单页时触发（商户名是店铺名或空）。指纹里的商户不同、
+     * 时间也可能差几十分钟，所以单独用「金额 + 时间窗」兜这道底。
+     */
+    @Query(
+        "SELECT * FROM transactions WHERE amountCents = :amount " +
+            "AND occurredAt BETWEEN :from AND :to AND source = 'NOTIFICATION' LIMIT 1",
+    )
+    suspend fun findAutoDuplicate(amount: Long, from: Long, to: Long): TransactionEntity?
+
     @Query("SELECT COUNT(*) FROM transactions")
     suspend fun count(): Int
 
