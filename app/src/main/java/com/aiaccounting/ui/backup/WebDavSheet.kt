@@ -62,6 +62,7 @@ fun WebDavSheet(
     onSave: (WebDavConfig) -> Unit,
     onUpload: () -> Unit,
     onDownload: () -> Unit,
+    onTest: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -193,6 +194,19 @@ fun WebDavSheet(
             }
 
             Spacer(Modifier.height(18.dp))
+
+            // 先测一次再上传：能把「账号错 / 地址错 / 没文件」区分开
+            BigButton(
+                text = if (busy) "请稍候…" else "测试连接",
+                primary = false,
+                enabled = !busy,
+                onClick = {
+                    onSave(current())
+                    onTest()
+                },
+            )
+
+            Spacer(Modifier.height(10.dp))
 
             BigButton(
                 text = if (busy) "请稍候…" else "保存并上传",

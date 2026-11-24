@@ -450,6 +450,17 @@ fun AppRoot(
             },
             onUpload = { uploadToCloud(false) },
             onDownload = downloadFromCloud,
+            onTest = {
+                scope.launch {
+                    webDavBusy = true
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching { WebDavClient(webDavConfig).probe() }
+                    }
+                    webDavBusy = false
+                    backupMessage = result.getOrNull()?.message
+                        ?: "测试失败：${result.exceptionOrNull()?.message}"
+                }
+            },
             onDismiss = { showWebDav = false },
         )
     }

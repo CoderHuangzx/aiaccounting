@@ -120,4 +120,59 @@ class WebDavClientTest {
         }
         assertTrue("错误信息应提到地址", error.message!!.contains("服务器地址不对"))
     }
+
+    // ── 连接自检 ────────────────────────────────────────────────────────
+
+    @Test
+    fun `自检_已有备份`() {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("日期,类型\n"))
+        val result = WebDavClient(config()).probe()
+        assertTrue(result.ok)
+        assertTrue(result.message.contains("已有备份"))
+    }
+
+    @Test
+    fun `自检_云端还没有备份也算连通`() {
+        server.enqueue(MockResponse().setResponseCode(404))
+        val result = WebDavClient(config()).probe()
+        assertTrue(result.ok)
+        assertTrue(result.message.contains("还没有备份"))
+    }
+
+    @Test
+    fun `自检_账号密码错误`() {
+        server.enqueue(MockResponse().setResponseCode(401))
+        val result = WebDavClient(config()).probe()
+        assertTrue(!result.ok)
+        assertTrue(result.message.contains("401"))
+    }
+
+    @Test
+    fun `自检_没填完整时直接提示`() {
+        val result = WebDavClient(config(base = "", user = "", pass = "")).probe()
+        assertTrue(!result.ok)
+        assertTrue(result.message.contains("地址"))
+    }
+
+    @Test
+    fun `上传失败时会带上服务器返回的说明`() {
+        server.enqueue(MockResponse().setResponseCode(403).setBody("<html>Access denied by policy</html>"))
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            WebDavClient(config()).upload("x")
+        }
+        assertTrue(error.message!!.contains("403") || error.message!!.contains("没有权限"))
+        assertTrue("应带上服务器原文", error.message!!.contains("Access denied"))
+    }
+
+    @Test
+    fun `上传请求带 Content-Length 而不是 chunked`() {
+        server.enqueue(MockResponse().setResponseCode(201))
+        val csv = "a,b\n1,2\n"
+        WebDavClient(config()).upload(csv)
+
+        val request = server.takeRequest()
+        assertEquals(csv.toByteArray().size.toString(), request.getHeader("Content-Length"))
+        assertNull(request.getHeader("Transfer-Encoding"))
+    }
 }
