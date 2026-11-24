@@ -183,6 +183,7 @@ class PaymentParserTest {
         assertEquals(PaymentParser.Channel.MEITUAN, PaymentParser.channelOf("com.sankuai.meituan"))
         assertEquals(PaymentParser.Channel.MEITUAN, PaymentParser.channelOf("com.sankuai.meituan.takeoutnew"))
         assertEquals(PaymentParser.Channel.DOUYIN, PaymentParser.channelOf("com.ss.android.ugc.aweme"))
+        assertEquals(PaymentParser.Channel.PINDUODUO, PaymentParser.channelOf("com.xunmeng.pinduoduo"))
         assertEquals(PaymentParser.Channel.UNKNOWN, PaymentParser.channelOf("com.example.app"))
         assertEquals(PaymentParser.Channel.UNKNOWN, PaymentParser.channelOf(null))
     }
@@ -196,6 +197,7 @@ class PaymentParserTest {
             "com.jingdong.app.mall",
             "com.sankuai.meituan",
             "com.ss.android.ugc.aweme",
+            "com.xunmeng.pinduoduo",
         ).forEach { pkg ->
             assertTrue("$pkg 应该在监听名单里", PaymentParser.isWatched(pkg))
         }

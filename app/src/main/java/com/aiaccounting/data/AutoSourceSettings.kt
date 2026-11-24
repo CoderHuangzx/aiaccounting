@@ -16,7 +16,8 @@ enum class AutoSource(val key: String, val label: String, val detail: String) {
     JD("jd", "京东", "解析京东订单通知"),
     MEITUAN("meituan", "美团", "解析美团 / 美团外卖通知"),
     DOUYIN("douyin", "抖音", "解析抖音商城订单通知"),
-    ACCESSIBILITY("accessibility", "读屏记账（下单即记）", "读取淘宝 / 京东 / 抖音 / 美团订单页"),
+    PINDUODUO("pinduoduo", "拼多多", "解析拼多多订单通知"),
+    ACCESSIBILITY("accessibility", "读屏记账（下单即记）", "读取淘宝 / 京东 / 抖音 / 美团 / 拼多多订单页"),
 }
 
 /** 通知渠道 → 对应的开关项。 */
@@ -27,6 +28,7 @@ fun autoSourceOf(channel: PaymentParser.Channel): AutoSource? = when (channel) {
     PaymentParser.Channel.JD -> AutoSource.JD
     PaymentParser.Channel.MEITUAN -> AutoSource.MEITUAN
     PaymentParser.Channel.DOUYIN -> AutoSource.DOUYIN
+    PaymentParser.Channel.PINDUODUO -> AutoSource.PINDUODUO
     PaymentParser.Channel.UNKNOWN -> null
 }
 

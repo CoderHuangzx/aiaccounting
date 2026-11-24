@@ -20,6 +20,7 @@ object PaymentParser {
         JD("京东", "微信"),
         MEITUAN("美团", "微信"),
         DOUYIN("抖音", "微信"),
+        PINDUODUO("拼多多", "微信"),
         UNKNOWN("未知", null),
     }
 
@@ -41,6 +42,7 @@ object PaymentParser {
         "com.sankuai.meituan",                // 美团
         "com.sankuai.meituan.takeoutnew",     // 美团外卖
         "com.ss.android.ugc.aweme",           // 抖音
+        "com.xunmeng.pinduoduo",              // 拼多多
     )
 
     /** 明确表示「钱进来了」的词。 */
@@ -103,6 +105,7 @@ object PaymentParser {
             pkg.startsWith("com.jingdong") -> Channel.JD
             pkg.startsWith("com.sankuai.meituan") -> Channel.MEITUAN
             pkg.startsWith("com.ss.android.ugc.aweme") -> Channel.DOUYIN
+            pkg.startsWith("com.xunmeng.pinduoduo") -> Channel.PINDUODUO
             else -> Channel.UNKNOWN
         }
     }

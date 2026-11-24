@@ -65,6 +65,7 @@ class AutoSourceSettingsTest {
         assertEquals(AutoSource.JD, autoSourceOf(PaymentParser.Channel.JD))
         assertEquals(AutoSource.MEITUAN, autoSourceOf(PaymentParser.Channel.MEITUAN))
         assertEquals(AutoSource.DOUYIN, autoSourceOf(PaymentParser.Channel.DOUYIN))
+        assertEquals(AutoSource.PINDUODUO, autoSourceOf(PaymentParser.Channel.PINDUODUO))
         assertNull(autoSourceOf(PaymentParser.Channel.UNKNOWN))
     }
 }

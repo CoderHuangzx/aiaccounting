@@ -132,6 +132,7 @@ class OrderAccessibilityService : AccessibilityService() {
             "com.tmall.wireless",
             "com.jingdong.app.mall",
             "com.ss.android.ugc.aweme",
+            "com.xunmeng.pinduoduo",
             "com.sankuai.meituan",
             "com.sankuai.meituan.takeoutnew",
         )
