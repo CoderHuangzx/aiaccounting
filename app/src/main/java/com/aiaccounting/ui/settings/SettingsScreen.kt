@@ -87,6 +87,7 @@ fun SettingsScreen(
     onOpenWebDav: () -> Unit,
     onUploadCloud: () -> Unit,
     onDownloadCloud: () -> Unit,
+    onExportDiagnostics: () -> Unit,
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
@@ -208,6 +209,7 @@ fun SettingsScreen(
                 onExport = onExport,
                 onUploadCloud = onUploadCloud,
                 onOpenWebDav = onOpenWebDav,
+                onExportDiagnostics = onExportDiagnostics,
             )
 
             SettingsPage.TUTORIAL_WECHAT -> TutorialPage(
@@ -548,6 +550,7 @@ private fun ExportPage(
     onExport: () -> Unit,
     onUploadCloud: () -> Unit,
     onOpenWebDav: () -> Unit,
+    onExportDiagnostics: () -> Unit,
 ) {
     PageScaffold(title = "导出数据", onBack = onBack) {
         SettingsCard {
@@ -571,6 +574,16 @@ private fun ExportPage(
                 title = "云备份设置（WebDAV）",
                 subtitle = if (webDavConfigured) "已配置，可开自动备份" else "坚果云：填地址 + 邮箱 + 应用密码",
                 onClick = onOpenWebDav,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        SettingsCard {
+            SettingsRow(
+                title = "导出诊断数据",
+                subtitle = "捕捉日志（通知原文），排查解析问题时用",
+                onClick = onExportDiagnostics,
             )
         }
 

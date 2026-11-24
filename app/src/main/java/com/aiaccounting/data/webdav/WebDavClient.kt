@@ -24,12 +24,19 @@ class WebDavClient(
 
     data class ProbeResult(val ok: Boolean, val message: String)
 
+    /** 上传商户规则（跟账本备份额外的一个小文件）。 */
+    fun uploadRules(content: String) = uploadTo(config.rulesUrl(), content)
+
+    fun downloadRules(): String? = downloadFrom(config.rulesUrl())
+
     /** 上传备份文件；失败抛异常，调用方用 [uploadResult] 拿 Result。 */
-    fun upload(content: String) {
+    fun upload(content: String) = uploadTo(config.backupUrl(), content)
+
+    private fun uploadTo(url: String, content: String) {
         val bytes = content.toByteArray(Charsets.UTF_8)
         // 坚果云等服务的根目录不允许直接建文件，所以先确保子目录存在（已存在会返回 405）
         ensureFolder()
-        var connection = open("PUT", config.backupUrl()) ?: error("地址不合法")
+        var connection = open("PUT", url) ?: error("地址不合法")
         try {
             connection.setFixedLengthStreamingMode(bytes.size)
             connection.setRequestProperty("Content-Type", "text/csv; charset=utf-8")
@@ -48,7 +55,7 @@ class WebDavClient(
                 val target = if (location.startsWith("http")) {
                     location
                 } else {
-                    URL(URL(config.backupUrl()), location).toString()
+                    URL(URL(url), location).toString()
                 }
                 connection = open("PUT", target) ?: error("地址不合法")
                 connection.setFixedLengthStreamingMode(bytes.size)
@@ -68,8 +75,10 @@ class WebDavClient(
     }
 
     /** 下载备份文件；服务器上没有备份（404）时返回 null。 */
-    fun download(): String? {
-        val connection = open("GET", config.backupUrl()) ?: error("地址不合法")
+    fun download(): String? = downloadFrom(config.backupUrl())
+
+    private fun downloadFrom(url: String): String? {
+        val connection = open("GET", url) ?: error("地址不合法")
         return try {
             val code = connection.responseCode
             when {

@@ -253,6 +253,27 @@ fun AppRoot(
         }
     }
 
+    /** 导出诊断数据（捕捉日志），排查解析问题时发给开发者。 */
+    val diagnosticsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val csv = withContext(Dispatchers.IO) { repository.exportCapturesCsv() }
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            out.write(csv.toByteArray(Charsets.UTF_8))
+                        } ?: error("无法写入目标文件")
+                    }
+                    val rows = csv.lineSequence().count { it.isNotBlank() } - 1
+                    "已导出 $rows 条捕捉日志"
+                }.onSuccess { backupMessage = it }
+                    .onFailure { backupMessage = "导出失败：${it.message}" }
+            }
+        }
+    }
+
     /** 支付宝账单：选文件 → 解析 → 先给预览（能导几笔、重复几笔）→ 再落库。 */
     val billLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -414,6 +435,10 @@ fun AppRoot(
             },
             onUploadCloud = { uploadToCloud(false) },
             onDownloadCloud = downloadFromCloud,
+            onExportDiagnostics = {
+                backupMessage = null
+                diagnosticsLauncher.launch("AI记账诊断-${LocalDate.now()}.csv")
+            },
             onInbox = { showInbox = true },
             onNotificationPermission = openNotificationSettings,
             onCaptureLog = { showCaptureLog = true },

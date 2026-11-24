@@ -10,7 +10,9 @@ import com.aiaccounting.domain.AlipayBillParser
 import com.aiaccounting.domain.BillRow
 import com.aiaccounting.domain.BackupCsv
 import com.aiaccounting.domain.DedupKey
+import com.aiaccounting.domain.DiagnosticsCsv
 import com.aiaccounting.domain.MerchantMatcher
+import com.aiaccounting.domain.PaymentParser
 import com.aiaccounting.domain.Tx
 import com.aiaccounting.domain.TxSource
 import com.aiaccounting.domain.TxType
@@ -256,6 +258,66 @@ class AccountingRepository(
     suspend fun merchantRules(): List<MerchantRuleEntity> = merchantRuleDao.all()
 
     fun observeMerchantRules(): Flow<List<MerchantRuleEntity>> = merchantRuleDao.observeAll()
+
+    // ── 诊断数据（商户规则 / 捕捉日志）─────────────────────────────────
+
+    /** 导出「商户 → 分类」规则，供云备份使用。 */
+    suspend fun exportRulesCsv(): String {
+        val categories = categoryDao.all().associateBy { it.id }
+        val rows = merchantRuleDao.all()
+            .sortedByDescending { it.hitCount }
+            .map { rule ->
+                DiagnosticsCsv.RuleRow(
+                    merchant = rule.pattern,
+                    categoryName = categories[rule.categoryId]?.name ?: "其他",
+                    hitCount = rule.hitCount,
+                )
+            }
+        return DiagnosticsCsv.encodeRules(rows)
+    }
+
+    /**
+     * 导入商户规则。按分类名匹配到本机分类，整表替换（规则本来就是学习结果，不需要合并）。
+     * @return 实际写入的条数
+     */
+    suspend fun importRulesCsv(text: String): Int {
+        val rows = runCatching { DiagnosticsCsv.decodeRules(text) }.getOrNull() ?: return 0
+        if (rows.isEmpty()) return 0
+        val categories = categoryDao.all()
+        var imported = 0
+        db.withTransaction {
+            merchantRuleDao.clear()
+            rows.forEach { row ->
+                val category = categories.firstOrNull { it.name == row.categoryName } ?: return@forEach
+                merchantRuleDao.upsert(
+                    MerchantRuleEntity(
+                        pattern = row.merchant,
+                        categoryId = category.id,
+                        hitCount = row.hitCount,
+                        updatedAt = now(),
+                    ),
+                )
+                imported++
+            }
+        }
+        return imported
+    }
+
+    /** 导出最近的捕捉日志（诊断用，不进自动备份）。 */
+    suspend fun exportCapturesCsv(limit: Int = 300): String {
+        val rows = rawCaptureDao.latest(limit).map { capture ->
+            DiagnosticsCsv.CaptureRow(
+                capturedAt = capture.capturedAt,
+                appLabel = PaymentParser.channelOf(capture.packageName).label,
+                packageName = capture.packageName,
+                title = capture.title,
+                text = capture.text,
+                parsed = capture.parsed,
+                reason = capture.reason,
+            )
+        }
+        return DiagnosticsCsv.encodeCaptures(rows.sortedBy { it.capturedAt })
+    }
 
     suspend fun deleteMerchantRule(pattern: String) {
         merchantRuleDao.deleteByPattern(pattern)

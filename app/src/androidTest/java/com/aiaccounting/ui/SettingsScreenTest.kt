@@ -41,7 +41,7 @@ class SettingsScreenTest {
                     recordCount = 12,
                     pendingCount = 3,
                     webDavConfigured = false,
-                    versionName = "0.1.1",
+                    versionName = "0.2.0",
                     message = null,
                     onBack = { backClicked = true },
                     onExport = { exported = true },
@@ -51,6 +51,7 @@ class SettingsScreenTest {
                     onOpenWebDav = { openedWebDav = true },
                     onUploadCloud = {},
                     onDownloadCloud = {},
+                    onExportDiagnostics = {},
                     onInbox = { openedInbox = true },
                     onNotificationPermission = {},
                     onCaptureLog = {},
@@ -90,7 +91,7 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("自动记账").assertIsDisplayed()
         composeRule.onNodeWithText("导入数据").assertIsDisplayed()
         composeRule.onNodeWithText("导出数据").assertIsDisplayed()
-        composeRule.onNodeWithText("AI 记账 v0.1.1").assertIsDisplayed()
+        composeRule.onNodeWithText("AI 记账 v0.2.0").assertIsDisplayed()
     }
 
     @Test

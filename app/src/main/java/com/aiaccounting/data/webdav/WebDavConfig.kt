@@ -29,6 +29,9 @@ data class WebDavConfig(
 
     fun backupUrl(): String = folderUrl() + fileName
 
+    /** 商户规则单独一个文件，跟账本分开放。 */
+    fun rulesUrl(): String = folderUrl() + RULES_FILE_NAME
+
     /** HTTP Basic 认证头。 */
     fun authHeader(): String =
         "Basic " + Base64.getEncoder().encodeToString("$username:$password".toByteArray(Charsets.UTF_8))
@@ -45,5 +48,8 @@ data class WebDavConfig(
 
         /** 备份子目录名。坚果云根目录不能直接放文件，必须有这一层。 */
         const val DEFAULT_FOLDER = "aiaccounting"
+
+        /** 商户规则文件名。 */
+        const val RULES_FILE_NAME = "aiaccounting-rules.csv"
     }
 }
