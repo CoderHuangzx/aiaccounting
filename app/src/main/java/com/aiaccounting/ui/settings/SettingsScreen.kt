@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aiaccounting.data.AutoSource
+import com.aiaccounting.data.CrashStore
 import com.aiaccounting.data.HealthSnapshot
 import com.aiaccounting.domain.TxType
 import com.aiaccounting.ui.theme.AlertRed
@@ -58,6 +59,7 @@ private enum class SettingsPage {
     MAIN,
     AUTO_CAPTURE,
     CATEGORIES,
+    CRASH_LOG,
     HEALTH,
     IMPORT,
     EXPORT,
@@ -101,6 +103,11 @@ fun SettingsScreen(
     onUpdateCategory: (id: Long, name: String, emoji: String) -> Unit,
     onDeleteCategory: (id: Long) -> Unit,
     onDeleteMerchantRule: (pattern: String) -> Unit,
+    crashLog: CrashLogState,
+    onOpenCrash: (CrashStore.Entry) -> Unit,
+    onCloseCrashDetail: () -> Unit,
+    onCopyCrash: (String) -> Unit,
+    onClearCrashes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var page by rememberSaveable { mutableStateOf(SettingsPage.MAIN) }
@@ -123,12 +130,25 @@ fun SettingsScreen(
                 pendingCount = pendingCount,
                 versionName = versionName,
                 message = message,
+                crashCount = crashLog.entries.size,
                 onBack = onBack,
                 onOpenAutoCapture = { page = SettingsPage.AUTO_CAPTURE },
                 onOpenCategories = { page = SettingsPage.CATEGORIES },
                 onOpenImport = { page = SettingsPage.IMPORT },
                 onOpenExport = { page = SettingsPage.EXPORT },
+                onOpenCrashLog = { page = SettingsPage.CRASH_LOG },
             )
+
+            SettingsPage.CRASH_LOG -> PageScaffold(title = "崩溃记录", onBack = ::goBack) {
+                CrashLogContent(
+                    entries = crashLog.entries,
+                    expandedText = crashLog.detail,
+                    onOpen = onOpenCrash,
+                    onCloseDetail = onCloseCrashDetail,
+                    onCopy = onCopyCrash,
+                    onClear = onClearCrashes,
+                )
+            }
 
             SettingsPage.CATEGORIES -> PageScaffold(title = "记账分类管理", onBack = ::goBack) {
                 CategoryContent(
@@ -224,11 +244,13 @@ private fun MainPage(
     pendingCount: Int,
     versionName: String,
     message: String?,
+    crashCount: Int,
     onBack: () -> Unit,
     onOpenAutoCapture: () -> Unit,
     onOpenCategories: () -> Unit,
     onOpenImport: () -> Unit,
     onOpenExport: () -> Unit,
+    onOpenCrashLog: () -> Unit,
 ) {
     PageScaffold(title = "设置", onBack = onBack) {
         SettingsCard {
@@ -256,6 +278,13 @@ private fun MainPage(
                 title = "导出数据",
                 subtitle = "CSV 备份 · 上传云端",
                 onClick = onOpenExport,
+            )
+            RowDivider()
+            SettingsRow(
+                title = "崩溃记录",
+                subtitle = if (crashCount > 0) "$crashCount 条，点开看堆栈" else "暂无崩溃，点开看看",
+                value = if (crashCount > 0) "$crashCount" else null,
+                onClick = onOpenCrashLog,
             )
         }
 

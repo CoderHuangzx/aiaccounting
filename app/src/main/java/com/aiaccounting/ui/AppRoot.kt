@@ -39,7 +39,9 @@ import com.aiaccounting.domain.XlsxReader
 import com.aiaccounting.overlay.OverlayAnchorService
 import com.aiaccounting.ui.backup.WebDavSheet
 import com.aiaccounting.ui.settings.CaptureLogSheet
+import com.aiaccounting.data.CrashStore
 import com.aiaccounting.ui.settings.CategoryPageState
+import com.aiaccounting.ui.settings.CrashLogState
 import com.aiaccounting.ui.settings.CategoryViewModel
 import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.components.HomeBottomBar
@@ -106,6 +108,20 @@ fun AppRoot(
     var webDavConfig by remember { mutableStateOf(settingsStore.load()) }
     var showWebDav by remember { mutableStateOf(false) }
     var webDavBusy by remember { mutableStateOf(false) }
+
+    // 崩溃记录
+    var crashLog by remember { mutableStateOf(CrashLogState()) }
+    val expenseCategories by categoryViewModel.expenseCategories.collectAsStateWithLifecycle()
+    val incomeCategories by categoryViewModel.incomeCategories.collectAsStateWithLifecycle()
+    val merchantRules by categoryViewModel.merchantRules.collectAsStateWithLifecycle()
+    LaunchedEffect(showSettings) {
+        if (showSettings) crashLog = crashLog.copy(entries = CrashStore.list(context))
+    }
+    LaunchedEffect(Unit) {
+        if (CrashStore.consumeUnseenFlag(context)) {
+            Toast.makeText(context, "上次异常退出，可在 设置 → 崩溃记录 查看", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // 自动记账的来源开关（每个渠道单独控制）
     val sourceStore = remember { AutoSourceSettings(context) }
@@ -434,23 +450,33 @@ fun AppRoot(
                 sourceStates = sourceStore.snapshot()
             },
             categoryState = CategoryPageState(
-                expense = categoryViewModel.expenseCategories.collectAsStateWithLifecycle().value,
-                income = categoryViewModel.incomeCategories.collectAsStateWithLifecycle().value,
-                rules = run {
-                    val all = categoryViewModel.expenseCategories.collectAsStateWithLifecycle().value +
-                        categoryViewModel.incomeCategories.collectAsStateWithLifecycle().value
-                    categoryViewModel.merchantRules.collectAsStateWithLifecycle().value.map { rule ->
-                        rule.pattern to (all.firstOrNull { it.id == rule.categoryId }?.name ?: "其他")
-                    }
+                expense = expenseCategories,
+                income = incomeCategories,
+                rules = merchantRules.map { rule ->
+                    rule.pattern to ((expenseCategories + incomeCategories)
+                        .firstOrNull { it.id == rule.categoryId }?.name ?: "其他")
                 },
                 message = categoryViewModel.message,
             ),
             onAddCategory = categoryViewModel::addCategory,
             onUpdateCategory = { id, name, emoji -> categoryViewModel.updateCategory(id, name, emoji) },
             onDeleteCategory = categoryViewModel::deleteCategory,
-            onDeleteMerchantRule = categoryViewModel::deleteMerchantRule,            onToggleAllSources = { enabled ->
+            onDeleteMerchantRule = categoryViewModel::deleteMerchantRule,
+            onToggleAllSources = { enabled ->
                 sourceStore.setAll(enabled)
                 sourceStates = sourceStore.snapshot()
+            },
+            crashLog = crashLog,
+            onOpenCrash = { entry -> crashLog = crashLog.copy(detail = CrashStore.read(entry.file)) },
+            onCloseCrashDetail = { crashLog = crashLog.copy(detail = null) },
+            onCopyCrash = { text ->
+                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("崩溃日志", text))
+                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+            },
+            onClearCrashes = {
+                CrashStore.clear(context)
+                crashLog = CrashLogState()
             },
             modifier = Modifier.fillMaxSize(),
         )

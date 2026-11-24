@@ -274,7 +274,11 @@ class ScreenshotTest {
                     onUpdateCategory = { _, _, _ -> },
                     onDeleteCategory = {},
                     onDeleteMerchantRule = {},
-                )
+                    crashLog = com.aiaccounting.ui.settings.CrashLogState(),
+                    onOpenCrash = {},
+                    onCloseCrashDetail = {},
+                    onCopyCrash = {},
+                    onClearCrashes = {},                )
             }
         }
     }
