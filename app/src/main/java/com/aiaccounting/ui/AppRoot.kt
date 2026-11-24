@@ -388,17 +388,14 @@ fun AppRoot(
                     ),
                 )
             },
+            // 在设置页之上弹出，关掉后回到「自动记账」页，而不是退回主界面
             onOpenWebDav = {
                 backupMessage = null
-                showSettings = false
                 showWebDav = true
             },
             onUploadCloud = { uploadToCloud(false) },
             onDownloadCloud = downloadFromCloud,
-            onInbox = {
-                showSettings = false
-                showInbox = true
-            },
+            onInbox = { showInbox = true },
             onNotificationPermission = openNotificationSettings,
             onCaptureLog = { showCaptureLog = true },
             onOpenAccessibility = {
