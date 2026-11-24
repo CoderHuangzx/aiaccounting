@@ -92,6 +92,9 @@ interface MerchantRuleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: MerchantRuleEntity)
 
+    @Query("DELETE FROM merchant_rules WHERE pattern = :pattern")
+    suspend fun deleteByPattern(pattern: String)
+
     @Query("DELETE FROM merchant_rules")
     suspend fun clear()
 
@@ -116,6 +119,25 @@ interface CategoryDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(items: List<CategoryEntity>)
+
+    @Insert
+    suspend fun insert(item: CategoryEntity): Long
+
+    @Update
+    suspend fun update(item: CategoryEntity)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun findById(id: Long): CategoryEntity?
+
+    /** 该分类下有多少笔记录，删除前用来保护。 */
+    @Query("SELECT COUNT(*) FROM transactions WHERE categoryId = :categoryId")
+    suspend fun usageCount(categoryId: Long): Int
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0) FROM categories WHERE kind = :kind")
+    suspend fun maxSortOrder(kind: String): Int
 
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun count(): Int

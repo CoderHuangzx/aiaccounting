@@ -32,6 +32,7 @@ class SettingsScreenTest {
     private var healthRefreshed = false
     private var toggledSource: Pair<String, Boolean>? = null
     private var allSourcesToggled: Boolean? = null
+    private var addedCategory: Triple<String, String, com.aiaccounting.domain.TxType>? = null
 
     private fun content() {
         composeRule.setContent {
@@ -68,6 +69,11 @@ class SettingsScreenTest {
                     sourceStates = com.aiaccounting.data.AutoSource.entries.associateWith { true },
                     onToggleSource = { source, enabled -> toggledSource = source.key to enabled },
                     onToggleAllSources = { allSourcesToggled = it },
+                    categoryState = com.aiaccounting.ui.settings.CategoryPageState(),
+                    onAddCategory = { name, emoji, kind -> addedCategory = Triple(name, emoji, kind) },
+                    onUpdateCategory = { _, _, _ -> },
+                    onDeleteCategory = {},
+                    onDeleteMerchantRule = {},
                 )
             }
         }
@@ -97,6 +103,19 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("微信账单").performClick()
         assertTrue(importedWeChat)
+    }
+
+    @Test
+    fun 设置里能进分类管理并新建() {
+        content()
+
+        composeRule.onNodeWithText("记账分类管理").performClick()
+        composeRule.onNodeWithText("支出管理").assertIsDisplayed()
+        composeRule.onNodeWithText("收入管理").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("addExpenseCategory").performClick()
+        composeRule.onNodeWithText("新建分类").assertIsDisplayed()
+        composeRule.onNodeWithText("图标").assertIsDisplayed()
     }
 
     @Test

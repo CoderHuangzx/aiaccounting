@@ -203,6 +203,63 @@ class AccountingRepository(
 
     suspend fun categoriesOf(kind: TxType): List<CategoryEntity> = categoryDao.byKind(kind.name)
 
+    // ── 分类管理 ────────────────────────────────────────────────────────
+
+    /** 新建分类。同名（同类型）已存在时返回 null。 */
+    suspend fun addCategory(name: String, emoji: String, kind: TxType): CategoryEntity? {
+        val trimmed = name.trim().take(8)
+        if (trimmed.isEmpty()) return null
+        if (categoryDao.byKind(kind.name).any { it.name == trimmed }) return null
+        val order = categoryDao.maxSortOrder(kind.name) + 1
+        val id = categoryDao.insert(
+            CategoryEntity(
+                name = trimmed,
+                emoji = emoji,
+                kind = kind.name,
+                sortOrder = order,
+                isBuiltIn = false,
+            ),
+        )
+        return categoryDao.findById(id)
+    }
+
+    /** 改名 / 换图标。 */
+    suspend fun updateCategory(id: Long, name: String, emoji: String): Boolean {
+        val existing = categoryDao.findById(id) ?: return false
+        val trimmed = name.trim().take(8)
+        if (trimmed.isEmpty()) return false
+        categoryDao.update(existing.copy(name = trimmed, emoji = emoji))
+        return true
+    }
+
+    /** 删除分类；有记录时拒绝，避免把账目变成孤儿。 */
+    suspend fun deleteCategory(id: Long): DeleteCategoryResult {
+        val existing = categoryDao.findById(id) ?: return DeleteCategoryResult.NotFound
+        if (existing.isBuiltIn) return DeleteCategoryResult.BuiltIn
+        val used = categoryDao.usageCount(id)
+        if (used > 0) return DeleteCategoryResult.InUse(used)
+        categoryDao.deleteById(id)
+        return DeleteCategoryResult.Deleted
+    }
+
+    suspend fun categoryUsage(id: Long): Int = categoryDao.usageCount(id)
+
+    /** 已学习的商户规则（设置里可查看、可删除）。 */
+    suspend fun merchantRules(): List<MerchantRuleEntity> = merchantRuleDao.all()
+
+    fun observeMerchantRules(): Flow<List<MerchantRuleEntity>> = merchantRuleDao.observeAll()
+
+    suspend fun deleteMerchantRule(pattern: String) {
+        merchantRuleDao.deleteByPattern(pattern)
+    }
+
+    sealed interface DeleteCategoryResult {
+        data object Deleted : DeleteCategoryResult
+        data object BuiltIn : DeleteCategoryResult
+        data object NotFound : DeleteCategoryResult
+        data class InUse(val count: Int) : DeleteCategoryResult
+    }
+
     suspend fun accounts(): List<AccountEntity> = accountDao.all()
 
     /** 手动记一笔。手动录入没有渠道单号，dedupKey 留空。 */

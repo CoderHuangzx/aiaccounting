@@ -269,6 +269,11 @@ class ScreenshotTest {
                     sourceStates = com.aiaccounting.data.AutoSource.entries.associateWith { true },
                     onToggleSource = { _, _ -> },
                     onToggleAllSources = {},
+                    categoryState = com.aiaccounting.ui.settings.CategoryPageState(),
+                    onAddCategory = { _, _, _ -> },
+                    onUpdateCategory = { _, _, _ -> },
+                    onDeleteCategory = {},
+                    onDeleteMerchantRule = {},
                 )
             }
         }

@@ -20,6 +20,8 @@ data class CategoryEntity(
     val emoji: String,
     val kind: String,
     val sortOrder: Int = 0,
+    /** 内置分类：允许改名换图标，但不允许删除；用户自己加的为 false。 */
+    val isBuiltIn: Boolean = true,
 )
 
 /**

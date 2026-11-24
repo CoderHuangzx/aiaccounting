@@ -39,6 +39,8 @@ import com.aiaccounting.domain.XlsxReader
 import com.aiaccounting.overlay.OverlayAnchorService
 import com.aiaccounting.ui.backup.WebDavSheet
 import com.aiaccounting.ui.settings.CaptureLogSheet
+import com.aiaccounting.ui.settings.CategoryPageState
+import com.aiaccounting.ui.settings.CategoryViewModel
 import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.components.HomeBottomBar
 import com.aiaccounting.ui.entry.EntrySheet
@@ -66,6 +68,7 @@ fun AppRoot(
     val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(repository))
     val reportViewModel: ReportViewModel = viewModel(factory = ReportViewModel.factory(repository))
     val entryViewModel: EntryViewModel = viewModel(factory = EntryViewModel.factory(repository))
+    val categoryViewModel: CategoryViewModel = viewModel(factory = CategoryViewModel.factory(repository))
 
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
     val pendingTxs by homeViewModel.pending.collectAsStateWithLifecycle()
@@ -430,7 +433,22 @@ fun AppRoot(
                 sourceStore.setEnabled(source, enabled)
                 sourceStates = sourceStore.snapshot()
             },
-            onToggleAllSources = { enabled ->
+            categoryState = CategoryPageState(
+                expense = categoryViewModel.expenseCategories.collectAsStateWithLifecycle().value,
+                income = categoryViewModel.incomeCategories.collectAsStateWithLifecycle().value,
+                rules = run {
+                    val all = categoryViewModel.expenseCategories.collectAsStateWithLifecycle().value +
+                        categoryViewModel.incomeCategories.collectAsStateWithLifecycle().value
+                    categoryViewModel.merchantRules.collectAsStateWithLifecycle().value.map { rule ->
+                        rule.pattern to (all.firstOrNull { it.id == rule.categoryId }?.name ?: "其他")
+                    }
+                },
+                message = categoryViewModel.message,
+            ),
+            onAddCategory = categoryViewModel::addCategory,
+            onUpdateCategory = { id, name, emoji -> categoryViewModel.updateCategory(id, name, emoji) },
+            onDeleteCategory = categoryViewModel::deleteCategory,
+            onDeleteMerchantRule = categoryViewModel::deleteMerchantRule,            onToggleAllSources = { enabled ->
                 sourceStore.setAll(enabled)
                 sourceStates = sourceStore.snapshot()
             },

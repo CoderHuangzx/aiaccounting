@@ -38,8 +38,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aiaccounting.data.AutoSource
 import com.aiaccounting.data.HealthSnapshot
+import com.aiaccounting.domain.TxType
 import com.aiaccounting.ui.theme.AlertRed
 import com.aiaccounting.ui.theme.BrandBlue
 import com.aiaccounting.ui.theme.BrandBlueDeep
@@ -55,6 +57,7 @@ import com.aiaccounting.ui.theme.TextSub
 private enum class SettingsPage {
     MAIN,
     AUTO_CAPTURE,
+    CATEGORIES,
     HEALTH,
     IMPORT,
     EXPORT,
@@ -93,6 +96,11 @@ fun SettingsScreen(
     sourceStates: Map<AutoSource, Boolean>,
     onToggleSource: (AutoSource, Boolean) -> Unit,
     onToggleAllSources: (Boolean) -> Unit,
+    categoryState: CategoryPageState,
+    onAddCategory: (name: String, emoji: String, kind: TxType) -> Unit,
+    onUpdateCategory: (id: Long, name: String, emoji: String) -> Unit,
+    onDeleteCategory: (id: Long) -> Unit,
+    onDeleteMerchantRule: (pattern: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var page by rememberSaveable { mutableStateOf(SettingsPage.MAIN) }
@@ -117,9 +125,23 @@ fun SettingsScreen(
                 message = message,
                 onBack = onBack,
                 onOpenAutoCapture = { page = SettingsPage.AUTO_CAPTURE },
+                onOpenCategories = { page = SettingsPage.CATEGORIES },
                 onOpenImport = { page = SettingsPage.IMPORT },
                 onOpenExport = { page = SettingsPage.EXPORT },
             )
+
+            SettingsPage.CATEGORIES -> PageScaffold(title = "记账分类管理", onBack = ::goBack) {
+                CategoryContent(
+                    expenseCategories = categoryState.expense,
+                    incomeCategories = categoryState.income,
+                    merchantRules = categoryState.rules,
+                    message = categoryState.message,
+                    onAddCategory = onAddCategory,
+                    onUpdateCategory = onUpdateCategory,
+                    onDeleteCategory = onDeleteCategory,
+                    onDeleteMerchantRule = onDeleteMerchantRule,
+                )
+            }
 
             SettingsPage.AUTO_CAPTURE -> AutoCapturePage(
                 pendingCount = pendingCount,
@@ -204,6 +226,7 @@ private fun MainPage(
     message: String?,
     onBack: () -> Unit,
     onOpenAutoCapture: () -> Unit,
+    onOpenCategories: () -> Unit,
     onOpenImport: () -> Unit,
     onOpenExport: () -> Unit,
 ) {
@@ -213,6 +236,12 @@ private fun MainPage(
                 title = "自动记账",
                 subtitle = if (pendingCount > 0) "通知捕捉 · 有 $pendingCount 笔待确认" else "通知捕捉 · 收件箱",
                 onClick = onOpenAutoCapture,
+            )
+            RowDivider()
+            SettingsRow(
+                title = "记账分类管理",
+                subtitle = "增删改分类 · 管理商户规则",
+                onClick = onOpenCategories,
             )
         }
         Spacer(Modifier.height(12.dp))
