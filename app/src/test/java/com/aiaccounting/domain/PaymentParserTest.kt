@@ -202,4 +202,39 @@ class PaymentParserTest {
         assertFalse(PaymentParser.isWatched("com.example.app"))
         assertFalse(PaymentParser.isWatched(null))
     }
+
+    // ── 真机回归（0.1.1 之后修的两个 bug）──────────────────────────────
+
+    @Test
+    fun `美团月付的成功支付逆序写法也能认`() {
+        // 真机文案：「【美团月付】剩余额度更新  成功支付21.90元」
+        val parsed = parseMeituan("【美团月付】", "剩余额度更新  成功支付21.90元，查看剩余额度>>")
+        assertEquals(2190L, parsed?.amountCents)
+        assertEquals(TxType.EXPENSE, parsed?.type)
+        assertEquals(PaymentParser.Channel.MEITUAN, parsed?.channel)
+    }
+
+    @Test
+    fun `支付宝广告推送不能被当成支出`() {
+        // 真机文案：瑞幸福利群发的券活动，含「支付宝」和「8.9元起」
+        val parsed = parseAlipay(
+            "瑞幸-LK福利群14377群",
+            "瑞幸首席幸运官:🍊上支付宝搜神券！\n☕️爆款人气饮品\n💰低至8.9元起",
+        )
+        assertNull(parsed)
+    }
+
+    @Test
+    fun `支付宝只认钱的事`() {
+        // 只有渠道名、没有收支事件
+        assertNull(parseAlipay("支付宝", "上支付宝搜「出行优惠」，天天有好礼"))
+        // 真正的支出通知仍然要能认
+        assertEquals(5250L, parseAlipay("支付宝", "你有一笔 52.50 元的支出")?.amountCents)
+    }
+
+    @Test
+    fun `美团营销推送不记账`() {
+        assertNull(parseMeituan("美团", "直播间抽0.01元螺蛳粉 融柳大铁牛螺蛳粉8.65元起吃>>"))
+        assertNull(parseMeituan("美团", "您的黑金会员专属准时宝和放心吃已生效 如配送超时赔付最高6元"))
+    }
 }

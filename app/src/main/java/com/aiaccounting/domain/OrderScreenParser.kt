@@ -33,7 +33,7 @@ object OrderScreenParser {
     /** 下单/付款成功的状态词。 */
     private val ORDER_WORDS = listOf(
         "订单提交成功", "下单成功", "支付成功", "付款成功", "已付款", "等待发货", "待发货",
-        "打包中", "待收货", "确认收货后付",
+        "打包中", "待收货", "确认收货后付", "订单已完成", "订单完成",
     )
 
     /** 退款的状态词。 */
@@ -58,8 +58,8 @@ object OrderScreenParser {
 
     private const val MAX_REASONABLE_CENTS = 100_000_000L // 100 万元，超了视为误抓
 
-    /** 订单编号：一般 15~25 位纯数字，可能带「订单编号」前缀。 */
-    private val ORDER_NO_PATTERN = Regex("""(?:订单编号|订单号|交易单号)[：:\s]*([0-9]{10,30})""")
+    /** 订单编号：一般 15~25 位纯数字，可能带「订单编号」前缀，也可能被空格分组（美团）。 */
+    private val ORDER_NO_PATTERN = Regex("""(?:订单编号|订单号码|订单号|交易单号)[：:\s]*([0-9][0-9\s]{9,30})""")
 
     /**
      * @param texts 页面上抓到的所有文本片段（NodeInfo 的 text / contentDescription）
@@ -134,7 +134,10 @@ object OrderScreenParser {
     }
 
     private fun extractOrderNo(joined: String): String? =
-        ORDER_NO_PATTERN.find(joined)?.groupValues?.get(1)?.takeIf { it.length >= 10 }
+        ORDER_NO_PATTERN.find(joined)
+            ?.groupValues?.get(1)
+            ?.filter { !it.isWhitespace() }
+            ?.takeIf { it.length >= 10 }
 
     /** 店铺名一般出现在「XX旗舰店 / XX专营店」这类片段里。 */
     private fun extractMerchant(texts: List<String>): String? {

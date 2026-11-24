@@ -112,4 +112,22 @@ class OrderScreenParserTest {
         assertNull(OrderScreenParser.parse(emptyList()))
         assertNull(OrderScreenParser.parse(listOf("", "  ")))
     }
+
+    @Test
+    fun `美团订单完成页取实付金额`() {
+        // 复刻真机截图：标题「订单已完成」，支付方式里带「美团月付(实付¥21.9)」，订单号被空格分组
+        val texts = listOf(
+            "尊敬的黒金会员，订单已完成",
+            "订单信息",
+            "期望时间 立即配送",
+            "配送服务 美团快送",
+            "订单号码 2002 4026 0119 1056 383",
+            "下单时间 2026-11-24 11:27:41",
+            "支付方式 美团月付(实付¥21.9)",
+        )
+        val event = OrderScreenParser.parse(texts)
+        assertEquals(OrderScreenParser.Kind.ORDER, event?.kind)
+        assertEquals(2190L, event?.amountCents)
+        assertEquals("2002402601191056383", event?.orderNo)
+    }
 }

@@ -52,12 +52,32 @@ object PaymentParser {
     /** 这些场景金额含义不明确，直接放过，交给人工。 */
     private val IGNORE_WORDS = listOf("红包", "转账", "提现", "零钱通", "理财", "还信用卡", "账单已出")
 
-    /** 电商渠道必须命中其中一个，才算「已经付过钱」。 */
-    private val PAID_WORDS = listOf("支付成功", "付款成功", "已付款", "已支付", "支付完成", "交易成功")
+    /**
+     * 营销/广告文案的特征词。支付宝、美团这类渠道会推送大量"上支付宝搜神券""低至8.9元起"，
+     * 里面既带渠道名又带金额，不加这道拦截就会被当成一笔支出。
+     */
+    private val PROMO_WORDS = listOf(
+        "神券", "优惠券", "领券", "抽奖", "低至", "元起", "起吃", "起购", "秒杀",
+        "福利群", "直播间", "热销中", "立即抢", "去看看", "点击查看", "关注进度",
+    )
+
+    /** 电商渠道必须命中其中一个，才算「已经付过钱」。注意「成功支付」和「支付成功」词序不同。 */
+    private val PAID_WORDS = listOf(
+        "支付成功", "成功支付", "付款成功", "成功付款", "已付款", "已支付", "支付完成", "交易成功",
+    )
 
     /** 电商渠道的反向词：没付钱或钱又退回来了，都不记。 */
     private val NOT_PAID_WORDS = listOf(
         "待支付", "未支付", "支付失败", "付款失败", "已取消", "取消订单", "退款", "退货", "已关闭",
+    )
+
+    /**
+     * 支付宝的通知必须是「钱的事」才认：
+     * 只靠「支付宝」三个字命中太松，广告文案里全都有这三个字。
+     */
+    private val ALIPAY_MARKERS = listOf(
+        "支付成功", "成功支付", "付款成功", "交易成功", "支付凭证", "你有一笔",
+        "消费", "支出", "收款", "到账", "入账", "已支付",
     )
 
     /** 金额：带 ¥/￥ 前缀，或带「元」后缀；支持千分位。 */
@@ -100,11 +120,15 @@ object PaymentParser {
         // 必须是「钱真的付了」的通知，否则普通消息、催付广告都会被误抓
         val looksLikePayment = when (channel) {
             Channel.WECHAT -> haystack.contains("微信支付") || haystack.contains("支付凭证")
-            Channel.ALIPAY -> haystack.contains("支付宝") || haystack.contains("支付助手") || haystack.contains("账单")
+            // 支付宝只认「钱的事」，广告文案里「支付宝」三个字太常见
+            Channel.ALIPAY -> ALIPAY_MARKERS.any { haystack.contains(it) }
             else -> PAID_WORDS.any { haystack.contains(it) } &&
                 NOT_PAID_WORDS.none { haystack.contains(it) }
         }
         if (!looksLikePayment) return null
+
+        // 营销/广告一律放过：它们常常既带渠道名又带金额
+        if (PROMO_WORDS.any { haystack.contains(it) }) return null
 
         if (IGNORE_WORDS.any { haystack.contains(it) }) return null
         if (NOT_PAID_WORDS.any { haystack.contains(it) }) return null
