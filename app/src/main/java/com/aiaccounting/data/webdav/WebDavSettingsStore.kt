@@ -18,6 +18,7 @@ class WebDavSettingsStore(context: Context) {
         username = prefs.getString(KEY_USER, "").orEmpty(),
         password = prefs.getString(KEY_PASS, "").orEmpty(),
         autoBackup = prefs.getBoolean(KEY_AUTO, false),
+        backupCaptures = prefs.getBoolean(KEY_CAPTURES, true),
     )
 
     fun save(config: WebDavConfig) {
@@ -26,6 +27,7 @@ class WebDavSettingsStore(context: Context) {
             .putString(KEY_USER, config.username.trim())
             .putString(KEY_PASS, config.password)
             .putBoolean(KEY_AUTO, config.autoBackup)
+            .putBoolean(KEY_CAPTURES, config.backupCaptures)
             .apply()
     }
 
@@ -50,6 +52,7 @@ class WebDavSettingsStore(context: Context) {
         const val KEY_USER = "username"
         const val KEY_PASS = "password"
         const val KEY_AUTO = "auto_backup"
+        const val KEY_CAPTURES = "backup_captures"
         const val KEY_LAST_BACKUP = "last_backup_at"
     }
 }

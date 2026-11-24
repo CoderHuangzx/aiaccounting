@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -73,12 +74,14 @@ fun WebDavSheet(
     var user by remember(initial.username) { mutableStateOf(initial.username) }
     var password by remember(initial.password) { mutableStateOf(initial.password) }
     var auto by remember(initial.autoBackup) { mutableStateOf(initial.autoBackup) }
+    var captures by remember(initial.backupCaptures) { mutableStateOf(initial.backupCaptures) }
 
     fun current() = WebDavConfig(
         baseUrl = url,
         username = user,
         password = password,
         autoBackup = auto,
+        backupCaptures = captures,
     )
 
     ModalBottomSheet(
@@ -179,6 +182,24 @@ fun WebDavSheet(
                 Switch(
                     checked = auto,
                     onCheckedChange = { auto = it },
+                    colors = SwitchDefaults.colors(checkedTrackColor = BrandBlue),
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "备份捕捉日志", fontSize = 14.sp, color = TextMain, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = "通知原文（含金额、商户名），只保留最近 200 条；关掉就不上传",
+                        fontSize = 11.sp,
+                        color = TextFaint,
+                    )
+                }
+                Switch(
+                    checked = captures,
+                    onCheckedChange = { captures = it },
+                    modifier = Modifier.testTag("switchCaptures"),
                     colors = SwitchDefaults.colors(checkedTrackColor = BrandBlue),
                 )
             }

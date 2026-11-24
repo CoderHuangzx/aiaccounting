@@ -29,6 +29,9 @@ class WebDavClient(
 
     fun downloadRules(): String? = downloadFrom(config.rulesUrl())
 
+    /** 上传捕捉日志（通知原文，只保留最近 200 条）。 */
+    fun uploadCaptures(content: String) = uploadTo(config.capturesUrl(), content)
+
     /** 上传备份文件；失败抛异常，调用方用 [uploadResult] 拿 Result。 */
     fun upload(content: String) = uploadTo(config.backupUrl(), content)
 

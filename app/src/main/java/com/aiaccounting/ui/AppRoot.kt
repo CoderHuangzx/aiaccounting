@@ -172,11 +172,27 @@ fun AppRoot(
                 if (!automatic) webDavBusy = true
                 runCatching {
                     withContext(Dispatchers.IO) {
+                        // 自动备份的安全阀：本地一条记录都没有时不覆盖云端，
+                        // 避免一次数据丢失把云端那份好备份也冲掉。
+                        if (automatic && repository.transactionCount() == 0) {
+                            return@withContext -1
+                        }
+                        val client = WebDavClient(config)
                         val csv = repository.exportBackupCsv()
-                        WebDavClient(config).upload(csv)
+                        client.upload(csv)
+                        // 规则和捕捉日志是小文件，跟着账本一起传
+                        runCatching { client.uploadRules(repository.exportRulesCsv()) }
+                        if (config.backupCaptures) {
+                            runCatching {
+                                client.uploadCaptures(
+                                    repository.exportCapturesCsv(WebDavConfig.CAPTURES_LIMIT),
+                                )
+                            }
+                        }
                         csv.lineSequence().count { it.isNotBlank() } - 1
                     }
                 }.onSuccess { count ->
+                    if (count < 0) return@onSuccess   // 本地为空，已跳过
                     settingsStore.setLastBackupAt(System.currentTimeMillis())
                     if (!automatic) backupMessage = "已上传 $count 条记录到云端"
                 }.onFailure { error ->
@@ -196,8 +212,12 @@ fun AppRoot(
                 webDavBusy = true
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        val text = WebDavClient(config).download() ?: error("云端还没有备份文件")
-                        repository.importBackupCsv(text)
+                        val client = WebDavClient(config)
+                        val text = client.download() ?: error("云端还没有备份文件")
+                        val count = repository.importBackupCsv(text)
+                        // 规则跟着恢复；失败不影响账本
+                        runCatching { client.downloadRules()?.let { repository.importRulesCsv(it) } }
+                        count
                     }
                 }.onSuccess { count -> backupMessage = "已从云端恢复 $count 条记录" }
                     .onFailure { error -> backupMessage = error.message ?: "恢复失败" }

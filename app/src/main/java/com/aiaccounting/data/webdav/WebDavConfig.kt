@@ -14,6 +14,8 @@ data class WebDavConfig(
     val username: String = "",
     val password: String = "",
     val autoBackup: Boolean = false,
+    /** 是否把捕捉日志也传上去（含通知原文，默认开启，可在面板里关掉）。 */
+    val backupCaptures: Boolean = true,
     val fileName: String = DEFAULT_FILE_NAME,
     val folder: String = DEFAULT_FOLDER,
 ) {
@@ -31,6 +33,9 @@ data class WebDavConfig(
 
     /** 商户规则单独一个文件，跟账本分开放。 */
     fun rulesUrl(): String = folderUrl() + RULES_FILE_NAME
+
+    /** 捕捉日志（只保留最近 [CAPTURES_LIMIT] 条，体积很小）。 */
+    fun capturesUrl(): String = folderUrl() + CAPTURES_FILE_NAME
 
     /** HTTP Basic 认证头。 */
     fun authHeader(): String =
@@ -51,5 +56,11 @@ data class WebDavConfig(
 
         /** 商户规则文件名。 */
         const val RULES_FILE_NAME = "aiaccounting-rules.csv"
+
+        /** 捕捉日志文件名。 */
+        const val CAPTURES_FILE_NAME = "aiaccounting-captures.csv"
+
+        /** 云备份保留的捕捉日志条数。 */
+        const val CAPTURES_LIMIT = 200
     }
 }
