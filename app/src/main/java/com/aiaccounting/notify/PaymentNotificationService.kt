@@ -4,6 +4,7 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aiaccounting.AccountingApp
+import com.aiaccounting.data.AutoSourceSettings
 import com.aiaccounting.domain.PaymentParser
 import com.aiaccounting.domain.TxSource
 import com.aiaccounting.overlay.OverlayAnchor
@@ -55,6 +56,9 @@ class PaymentNotificationService : NotificationListenerService() {
 
         // 只处理名单里的 App（微信/支付宝/淘宝/京东/美团/抖音）
         if (!PaymentParser.isWatched(packageName)) return
+
+        // 用户关掉这个来源就彻底不处理：不解析、不留日志、不生成记录
+        if (!AutoSourceSettings(this).isChannelEnabled(PaymentParser.channelOf(packageName))) return
 
         val extras = notification.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()

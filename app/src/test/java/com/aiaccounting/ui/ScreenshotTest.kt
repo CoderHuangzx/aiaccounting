@@ -266,6 +266,9 @@ class ScreenshotTest {
                     onOpenOverlayPermission = {},
                     onRequestBatteryWhitelist = {},
                     onRefreshHealth = {},
+                    sourceStates = com.aiaccounting.data.AutoSource.entries.associateWith { true },
+                    onToggleSource = { _, _ -> },
+                    onToggleAllSources = {},
                 )
             }
         }

@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aiaccounting.AccountingApp
 import com.aiaccounting.data.AccountingRepository
+import com.aiaccounting.data.AutoSourceSettings
 import com.aiaccounting.data.HealthChecks
 import com.aiaccounting.data.HealthSnapshot
 import com.aiaccounting.data.webdav.WebDavClient
@@ -102,6 +103,10 @@ fun AppRoot(
     var webDavConfig by remember { mutableStateOf(settingsStore.load()) }
     var showWebDav by remember { mutableStateOf(false) }
     var webDavBusy by remember { mutableStateOf(false) }
+
+    // 自动记账的来源开关（每个渠道单独控制）
+    val sourceStore = remember { AutoSourceSettings(context) }
+    var sourceStates by remember { mutableStateOf(sourceStore.snapshot()) }
 
     // 运行状态自检：进入设置时重新算一次（权限可能在后台被系统改掉）
     var health by remember {
@@ -423,6 +428,15 @@ fun AppRoot(
                 }
             },
             onRefreshHealth = refreshHealth,
+            sourceStates = sourceStates,
+            onToggleSource = { source, enabled ->
+                sourceStore.setEnabled(source, enabled)
+                sourceStates = sourceStore.snapshot()
+            },
+            onToggleAllSources = { enabled ->
+                sourceStore.setAll(enabled)
+                sourceStates = sourceStore.snapshot()
+            },
             modifier = Modifier.fillMaxSize(),
         )
     }

@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.aiaccounting.AccountingApp
+import com.aiaccounting.data.AutoSource
+import com.aiaccounting.data.AutoSourceSettings
 import com.aiaccounting.domain.OrderScreenParser
 import com.aiaccounting.domain.TxSource
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +29,9 @@ class OrderAccessibilityService : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // 用户关掉「读屏记账」就完全不看屏幕
+        if (!AutoSourceSettings(this).isEnabled(AutoSource.ACCESSIBILITY)) return
+
         val packageName = event?.packageName?.toString() ?: return
         if (packageName !in WATCHED_PACKAGES) return
 

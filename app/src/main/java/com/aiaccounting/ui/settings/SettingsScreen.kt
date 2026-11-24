@@ -21,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aiaccounting.data.AutoSource
 import com.aiaccounting.data.HealthSnapshot
 import com.aiaccounting.ui.theme.AlertRed
 import com.aiaccounting.ui.theme.BrandBlue
@@ -87,6 +90,9 @@ fun SettingsScreen(
     onOpenOverlayPermission: () -> Unit,
     onRequestBatteryWhitelist: () -> Unit,
     onRefreshHealth: () -> Unit,
+    sourceStates: Map<AutoSource, Boolean>,
+    onToggleSource: (AutoSource, Boolean) -> Unit,
+    onToggleAllSources: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var page by rememberSaveable { mutableStateOf(SettingsPage.MAIN) }
@@ -119,12 +125,15 @@ fun SettingsScreen(
                 pendingCount = pendingCount,
                 message = message,
                 issueCount = health.issueCount,
+                sourceStates = sourceStates,
                 onBack = ::goBack,
                 onInbox = onInbox,
                 onNotificationPermission = onNotificationPermission,
                 onCaptureLog = onCaptureLog,
                 onOpenAccessibility = onOpenAccessibility,
                 onOpenHealth = { page = SettingsPage.HEALTH },
+                onToggleSource = onToggleSource,
+                onToggleAllSources = onToggleAllSources,
             )
 
             SettingsPage.HEALTH -> PageScaffold(title = "运行状态", onBack = ::goBack) {
@@ -249,13 +258,17 @@ private fun AutoCapturePage(
     pendingCount: Int,
     message: String?,
     issueCount: Int,
+    sourceStates: Map<AutoSource, Boolean>,
     onBack: () -> Unit,
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
     onOpenAccessibility: () -> Unit,
     onOpenHealth: () -> Unit,
+    onToggleSource: (AutoSource, Boolean) -> Unit,
+    onToggleAllSources: (Boolean) -> Unit,
 ) {
+    val allEnabled = sourceStates.values.all { it }
     PageScaffold(title = "自动记账", onBack = onBack) {
         Text(
             text = "监听微信 / 支付宝 / 淘宝 / 京东 / 美团 / 抖音的支付通知，解析成一笔待确认记录。",
@@ -293,13 +306,52 @@ private fun AutoCapturePage(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(18.dp))
+        Text(
+            text = "来源",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextMain,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+        Spacer(Modifier.height(6.dp))
 
         SettingsCard {
-            SettingsRow(
-                title = "读屏记账（下单即记）",
-                subtitle = "淘宝/京东/抖音/美团下单、退款时读页面文字，立刻记一笔（进待确认）",
-                onClick = onOpenAccessibility,
+            AutoSource.entries.forEachIndexed { index, source ->
+                if (index > 0) RowDivider()
+                AutoSourceRow(
+                    source = source,
+                    enabled = sourceStates[source] ?: true,
+                    onToggle = { onToggleSource(source, it) },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "关掉的来源不再解析、不留日志、也不会生成待确认记录。",
+            fontSize = 11.sp,
+            color = TextFaint,
+            lineHeight = 16.sp,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+
+        Spacer(Modifier.height(18.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(if (allEnabled) BrandBlueSofter else BrandBlue)
+                .clickable { onToggleAllSources(!allEnabled) }
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (allEnabled) "全部关闭" else "全部开启",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (allEnabled) BrandBlue else Color.White,
             )
         }
 
@@ -312,6 +364,43 @@ private fun AutoCapturePage(
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
+    }
+}
+
+/** 一个来源一行：标题 + 说明 + 右侧开关。读屏那行点标题可以跳到无障碍设置。 */
+@Composable
+private fun AutoSourceRow(
+    source: AutoSource,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = source.label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (enabled) TextMain else TextFaint,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = source.detail,
+                fontSize = 11.sp,
+                color = if (enabled) TextSub else TextFaint,
+                lineHeight = 15.sp,
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = onToggle,
+            modifier = Modifier.testTag("source_${source.key}"),
+            colors = SwitchDefaults.colors(checkedTrackColor = BrandBlue),
+        )
     }
 }
 

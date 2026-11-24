@@ -8,6 +8,9 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.theme.AIAccountingTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -27,6 +30,8 @@ class SettingsScreenTest {
     private var openedInbox = false
     private var backClicked = false
     private var healthRefreshed = false
+    private var toggledSource: Pair<String, Boolean>? = null
+    private var allSourcesToggled: Boolean? = null
 
     private fun content() {
         composeRule.setContent {
@@ -60,6 +65,9 @@ class SettingsScreenTest {
                     onOpenOverlayPermission = {},
                     onRequestBatteryWhitelist = {},
                     onRefreshHealth = { healthRefreshed = true },
+                    sourceStates = com.aiaccounting.data.AutoSource.entries.associateWith { true },
+                    onToggleSource = { source, enabled -> toggledSource = source.key to enabled },
+                    onToggleAllSources = { allSourcesToggled = it },
                 )
             }
         }
