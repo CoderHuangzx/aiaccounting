@@ -42,7 +42,7 @@ class WebDavClientTest {
         assertEquals("https://dav.example.com/dav/", config(base = "https://dav.example.com/dav").normalizedBase())
         assertEquals("https://dav.example.com/dav/", config(base = "https://dav.example.com/dav/").normalizedBase())
         assertEquals(
-            "https://dav.example.com/dav/aiaccounting-backup.csv",
+            "https://dav.example.com/dav/aiaccounting/aiaccounting-backup.csv",
             config(base = " https://dav.example.com/dav ").backupUrl(),
         )
     }
@@ -64,15 +64,20 @@ class WebDavClientTest {
 
     @Test
     fun `上传的是 PUT 且带认证头`() {
-        server.enqueue(MockResponse().setResponseCode(201))
+        server.enqueue(MockResponse().setResponseCode(201))   // MKCOL 建目录
+        server.enqueue(MockResponse().setResponseCode(201))   // PUT
         val client = WebDavClient(config())
         val csv = "日期,类型,金额\n2026-11-23 09:30,支出,52.50\n"
 
         client.upload(csv)
 
+        val mkcol = server.takeRequest()
+        assertEquals("MKCOL", mkcol.method)
+        assertEquals("/dav/aiaccounting/", mkcol.path)
+
         val request = server.takeRequest()
         assertEquals("PUT", request.method)
-        assertEquals("/dav/aiaccounting-backup.csv", request.path)
+        assertEquals("/dav/aiaccounting/aiaccounting-backup.csv", request.path)
         assertEquals(
             "Basic " + Base64.getEncoder().encodeToString("me@example.com:app-password".toByteArray()),
             request.getHeader("Authorization"),
@@ -113,6 +118,7 @@ class WebDavClientTest {
 
     @Test
     fun `404 上传时提示地址可能不对`() {
+        server.enqueue(MockResponse().setResponseCode(405))   // 目录已存在
         server.enqueue(MockResponse().setResponseCode(404))
 
         val error = assertThrows(IllegalStateException::class.java) {
@@ -156,6 +162,7 @@ class WebDavClientTest {
 
     @Test
     fun `上传失败时会带上服务器返回的说明`() {
+        server.enqueue(MockResponse().setResponseCode(405))
         server.enqueue(MockResponse().setResponseCode(403).setBody("<html>Access denied by policy</html>"))
 
         val error = assertThrows(IllegalStateException::class.java) {
@@ -167,10 +174,12 @@ class WebDavClientTest {
 
     @Test
     fun `上传请求带 Content-Length 而不是 chunked`() {
-        server.enqueue(MockResponse().setResponseCode(201))
+        server.enqueue(MockResponse().setResponseCode(405))   // MKCOL：目录已存在
+        server.enqueue(MockResponse().setResponseCode(201))   // PUT
         val csv = "a,b\n1,2\n"
         WebDavClient(config()).upload(csv)
 
+        server.takeRequest()   // MKCOL
         val request = server.takeRequest()
         assertEquals(csv.toByteArray().size.toString(), request.getHeader("Content-Length"))
         assertNull(request.getHeader("Transfer-Encoding"))

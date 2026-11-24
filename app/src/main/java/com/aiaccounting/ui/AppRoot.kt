@@ -161,7 +161,7 @@ fun AppRoot(
                     settingsStore.setLastBackupAt(System.currentTimeMillis())
                     if (!automatic) backupMessage = "已上传 $count 条记录到云端"
                 }.onFailure { error ->
-                    if (!automatic) backupMessage = "上传失败：${error.message}"
+                    if (!automatic) backupMessage = error.message ?: "上传失败"
                 }
                 if (!automatic) webDavBusy = false
             }
@@ -181,7 +181,7 @@ fun AppRoot(
                         repository.importBackupCsv(text)
                     }
                 }.onSuccess { count -> backupMessage = "已从云端恢复 $count 条记录" }
-                    .onFailure { error -> backupMessage = "恢复失败：${error.message}" }
+                    .onFailure { error -> backupMessage = error.message ?: "恢复失败" }
                 webDavBusy = false
             }
         }

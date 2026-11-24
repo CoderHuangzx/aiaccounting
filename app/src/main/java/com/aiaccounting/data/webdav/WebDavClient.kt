@@ -1,7 +1,11 @@
 package com.aiaccounting.data.webdav
 
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.net.URL
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 /**
  * 极简 WebDAV 客户端：只做「整个文件 PUT / GET」，够备份用，也不引任何三方库。
@@ -23,12 +27,14 @@ class WebDavClient(
     /** 上传备份文件；失败抛异常，调用方用 [uploadResult] 拿 Result。 */
     fun upload(content: String) {
         val bytes = content.toByteArray(Charsets.UTF_8)
+        // 坚果云等服务的根目录不允许直接建文件，所以先确保子目录存在（已存在会返回 405）
+        ensureFolder()
         var connection = open("PUT", config.backupUrl()) ?: error("地址不合法")
         try {
             connection.setFixedLengthStreamingMode(bytes.size)
             connection.setRequestProperty("Content-Type", "text/csv; charset=utf-8")
-            connection.setRequestProperty("Content-Length", bytes.size.toString())
-            // 关掉 100-continue：部分服务在这上面表现不一致
+            // 注意：不要再手动设 Content-Length，setFixedLengthStreamingMode 会自己写，
+            // 手动加会导致重复头，服务端等不到结束而超时。
             connection.setRequestProperty("Expect", "")
             connection.doOutput = true
             connection.outputStream.use { it.write(bytes) }
@@ -106,6 +112,66 @@ class WebDavClient(
 
     fun downloadResult(): Result<String?> = runCatching { download() }
 
+    /**
+     * 确保备份目录存在。
+     *
+     * MKCOL 在目录已存在时返回 405，服务器不允许建目录时可能返回 403/409，
+     * 这些都不算致命——真正的结论交给后面的 PUT。只有认证失败要立刻报出来。
+     */
+    private fun ensureFolder() {
+        if (!config.isConfigured) return
+        when (val code = mkcol(config.folderUrl())) {
+            401 -> error("上传失败：账号或应用密码不对（401）")
+            // 201 新建成功；405 已存在；其它（403/409 等）交给后面的 PUT 给结论
+            else -> Unit
+        }
+    }
+
+    /**
+     * 发一个 MKCOL。HttpURLConnection 不允许非标准方法（会抛 Invalid HTTP method），
+     * 所以这里直接用 socket 拼请求——只为了建目录这一件事。
+     */
+    private fun mkcol(url: String): Int {
+        val target = runCatching { URL(url) }.getOrNull() ?: return -1
+        val isHttps = target.protocol.equals("https", true)
+        val host = target.host
+        val port = if (target.port != -1) target.port else if (isHttps) 443 else 80
+        val path = target.file.ifBlank { "/" }
+
+        return runCatching {
+            val raw = Socket()
+            raw.connect(InetSocketAddress(host, port), timeoutMillis)
+            val socket: Socket = if (isHttps) {
+                val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+                factory.createSocket(raw, host, port, true).also {
+                    (it as SSLSocket).startHandshake()
+                }
+            } else {
+                raw
+            }
+            socket.soTimeout = timeoutMillis
+
+            val request = buildString {
+                append("MKCOL ").append(path).append(" HTTP/1.1\r\n")
+                append("Host: ").append(host).append("\r\n")
+                append("Authorization: ").append(config.authHeader()).append("\r\n")
+                append("Content-Length: 0\r\n")
+                append("Connection: close\r\n\r\n")
+            }
+            socket.getOutputStream().apply {
+                write(request.toByteArray(Charsets.UTF_8))
+                flush()
+            }
+            // 必须把响应读完再关连接：只读状态行就 close，服务端会认为响应没发完，
+            // 后续请求容易被挂住（MockWebServer 上复现为读超时）。
+            val reader = socket.getInputStream().bufferedReader(Charsets.ISO_8859_1)
+            val statusLine = reader.readLine()
+            runCatching { reader.readText() }
+            socket.close()
+            statusLine?.split(" ")?.getOrNull(1)?.toIntOrNull() ?: -1
+        }.getOrDefault(-1)
+    }
+
     private fun open(method: String, url: String): HttpURLConnection? {
         if (!config.isConfigured) return null
         val connection = runCatching { URL(url).openConnection() as HttpURLConnection }.getOrNull() ?: return null
@@ -132,7 +198,8 @@ class WebDavClient(
             301, 302, 307, 308 -> "服务器要求跳转，检查地址是否应为 https"
             401 -> "账号或应用密码不对"
             403 -> "没有权限，检查地址是否以 /dav/ 结尾"
-            404 -> "服务器地址不对（通常是少了 /dav/ 之类的路径）"
+            404 -> "服务器地址不对（通常是少了 /dav/ 之类的路径）；" +
+                "如果地址正确，可能是服务端不允许在根目录建文件（坚果云需要子目录）"
             409 -> "目标目录不存在"
             411 -> "服务器要求 Content-Length"
             413 -> "文件太大"
