@@ -16,6 +16,7 @@ import com.aiaccounting.domain.TxSource
 import com.aiaccounting.domain.TxType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.map
 import androidx.room.withTransaction
 
@@ -30,8 +31,15 @@ class AccountingRepository(
     private val rawCaptureDao = db.rawCaptureDao()
     private val merchantRuleDao = db.merchantRuleDao()
 
-    /** 首次启动写入种子数据；已写过则什么都不做。 */
-    suspend fun ensureSeeded() {
+    /** 种子写入必须串行：Application、界面、后台服务会并发调用。 */
+    private val seedMutex = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * 首次启动写入种子数据；已写过则什么都不做。
+     *
+     * 加锁是必要的：之前没锁，全新安装时分类被写了两遍（真机出现过 30 个分类）。
+     */
+    suspend fun ensureSeeded() = seedMutex.withLock {
         if (categoryDao.count() == 0) categoryDao.insertAll(SeedData.allCategories)
         if (accountDao.count() == 0) accountDao.insertAll(SeedData.accounts)
     }
