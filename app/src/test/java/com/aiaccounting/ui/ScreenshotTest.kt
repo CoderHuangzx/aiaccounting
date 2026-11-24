@@ -4,13 +4,16 @@ import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
+import com.aiaccounting.data.HealthSnapshot
 import com.aiaccounting.data.local.AccountEntity
 import com.aiaccounting.data.local.CategoryEntity
 import com.aiaccounting.domain.HomeGrouper
@@ -23,6 +26,7 @@ import com.aiaccounting.domain.TxType
 import com.aiaccounting.ui.components.HomeBottomBar
 import com.aiaccounting.ui.entry.EntryContent
 import com.aiaccounting.ui.entry.EntryUiState
+import com.aiaccounting.ui.settings.HealthContent
 import com.aiaccounting.ui.entry.DatePickerPanel
 import com.aiaccounting.ui.settings.SettingsScreen
 import com.aiaccounting.ui.home.HomeScreen
@@ -251,7 +255,44 @@ class ScreenshotTest {
                     onNotificationPermission = {},
                     onCaptureLog = {},
                     onOpenAccessibility = {},
+                    health = com.aiaccounting.data.HealthSnapshot(
+                        notificationListenerEnabled = true,
+                        accessibilityEnabled = true,
+                        overlayGranted = true,
+                        batteryUnrestricted = false,
+                        lastCaptureAt = null,
+                        lastBackupAt = null,
+                    ),
+                    onOpenOverlayPermission = {},
+                    onRequestBatteryWhitelist = {},
+                    onRefreshHealth = {},
                 )
+            }
+        }
+    }
+    @Test
+    fun health() {
+        paparazzi.snapshot(name = "health") {
+            AIAccountingTheme {
+                Box(Modifier.fillMaxSize().background(PageBg)) {
+                    Column(Modifier.padding(16.dp)) {
+                        HealthContent(
+                            snapshot = HealthSnapshot(
+                                notificationListenerEnabled = true,
+                                accessibilityEnabled = false,
+                                overlayGranted = true,
+                                batteryUnrestricted = false,
+                                lastCaptureAt = 1_795_510_000_000,
+                                lastBackupAt = null,
+                            ),
+                            onOpenNotificationAccess = {},
+                            onOpenAccessibility = {},
+                            onOpenOverlay = {},
+                            onRequestBatteryWhitelist = {},
+                            onRefresh = {},
+                        )
+                    }
+                }
             }
         }
     }

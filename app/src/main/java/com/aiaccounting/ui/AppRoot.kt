@@ -27,6 +27,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aiaccounting.AccountingApp
 import com.aiaccounting.data.AccountingRepository
+import com.aiaccounting.data.HealthChecks
+import com.aiaccounting.data.HealthSnapshot
 import com.aiaccounting.data.webdav.WebDavClient
 import com.aiaccounting.data.webdav.WebDavConfig
 import com.aiaccounting.data.webdav.WebDavSettingsStore
@@ -101,6 +103,22 @@ fun AppRoot(
     var showWebDav by remember { mutableStateOf(false) }
     var webDavBusy by remember { mutableStateOf(false) }
 
+    // 运行状态自检：进入设置时重新算一次（权限可能在后台被系统改掉）
+    var health by remember {
+        mutableStateOf(HealthSnapshot(false, false, false, false, null, null))
+    }
+    val refreshHealth: () -> Unit = {
+        scope.launch {
+            val lastCapture = runCatching {
+                repository.latestRawCaptures(1).firstOrNull()?.capturedAt
+            }.getOrNull()
+            health = HealthChecks.snapshot(context, lastCapture, settingsStore.lastBackupAt())
+        }
+    }
+    LaunchedEffect(showSettings) {
+        if (showSettings) refreshHealth()
+    }
+
     // 保持「正在其他应用的上层显示内容」这个状态：只挂一个 1×1 隐形窗口，不画任何东西。
     // 没授予悬浮窗权限时静默跳过，不影响其他功能。
     LaunchedEffect(Unit) {
@@ -135,6 +153,7 @@ fun AppRoot(
                         csv.lineSequence().count { it.isNotBlank() } - 1
                     }
                 }.onSuccess { count ->
+                    settingsStore.setLastBackupAt(System.currentTimeMillis())
                     if (!automatic) backupMessage = "已上传 $count 条记录到云端"
                 }.onFailure { error ->
                     if (!automatic) backupMessage = "上传失败：${error.message}"
@@ -382,6 +401,28 @@ fun AppRoot(
                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
             },
+            health = health,
+            onOpenOverlayPermission = {
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:${context.packageName}"),
+                        ),
+                    )
+                }
+            },
+            onRequestBatteryWhitelist = {
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            android.net.Uri.parse("package:${context.packageName}"),
+                        ),
+                    )
+                }
+            },
+            onRefreshHealth = refreshHealth,
             modifier = Modifier.fillMaxSize(),
         )
     }

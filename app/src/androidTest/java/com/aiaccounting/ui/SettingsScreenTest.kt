@@ -26,6 +26,7 @@ class SettingsScreenTest {
     private var openedWebDav = false
     private var openedInbox = false
     private var backClicked = false
+    private var healthRefreshed = false
 
     private fun content() {
         composeRule.setContent {
@@ -48,6 +49,17 @@ class SettingsScreenTest {
                     onNotificationPermission = {},
                     onCaptureLog = {},
                     onOpenAccessibility = {},
+                    health = com.aiaccounting.data.HealthSnapshot(
+                        notificationListenerEnabled = true,
+                        accessibilityEnabled = true,
+                        overlayGranted = true,
+                        batteryUnrestricted = false,
+                        lastCaptureAt = null,
+                        lastBackupAt = null,
+                    ),
+                    onOpenOverlayPermission = {},
+                    onRequestBatteryWhitelist = {},
+                    onRefreshHealth = { healthRefreshed = true },
                 )
             }
         }
@@ -116,6 +128,25 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("待确认收件箱").performClick()
         assertTrue(openedInbox)
+    }
+
+    @Test
+    fun 自动记账页能进运行状态并显示红绿灯() {
+        content()
+
+        composeRule.onNodeWithText("自动记账").performClick()
+        composeRule.onNodeWithText("运行状态").assertIsDisplayed()
+        composeRule.onNodeWithText("运行状态").performClick()
+
+        // 电池白名单是唯一未就绪项 → 应提示 1 项未就绪
+        composeRule.onNodeWithText("有 1 项未就绪，自动记账可能悄悄失效").assertIsDisplayed()
+        composeRule.onNodeWithTag("healthNotification").assertIsDisplayed()
+        composeRule.onNodeWithTag("healthAccessibility").assertIsDisplayed()
+        composeRule.onNodeWithTag("healthBattery").assertIsDisplayed()
+        composeRule.onNodeWithText("重新检测").assertIsDisplayed()
+
+        composeRule.onNodeWithText("重新检测").performClick()
+        assertTrue(healthRefreshed)
     }
 
 

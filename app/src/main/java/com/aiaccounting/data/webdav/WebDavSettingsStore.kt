@@ -33,6 +33,14 @@ class WebDavSettingsStore(context: Context) {
         prefs.edit().putBoolean(KEY_AUTO, enabled).apply()
     }
 
+    /** 记录最近一次成功上传的时间，自检页用来显示「多久没备份了」。 */
+    fun setLastBackupAt(timestamp: Long) {
+        prefs.edit().putLong(KEY_LAST_BACKUP, timestamp).apply()
+    }
+
+    fun lastBackupAt(): Long? =
+        prefs.getLong(KEY_LAST_BACKUP, 0L).takeIf { it > 0L }
+
     fun clear() {
         prefs.edit().clear().apply()
     }
@@ -42,5 +50,6 @@ class WebDavSettingsStore(context: Context) {
         const val KEY_USER = "username"
         const val KEY_PASS = "password"
         const val KEY_AUTO = "auto_backup"
+        const val KEY_LAST_BACKUP = "last_backup_at"
     }
 }

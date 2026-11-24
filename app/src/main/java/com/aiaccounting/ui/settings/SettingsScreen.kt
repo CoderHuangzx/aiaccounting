@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aiaccounting.data.HealthSnapshot
 import com.aiaccounting.ui.theme.AlertRed
 import com.aiaccounting.ui.theme.BrandBlue
 import com.aiaccounting.ui.theme.BrandBlueDeep
@@ -51,6 +52,7 @@ import com.aiaccounting.ui.theme.TextSub
 private enum class SettingsPage {
     MAIN,
     AUTO_CAPTURE,
+    HEALTH,
     IMPORT,
     EXPORT,
     TUTORIAL_WECHAT,
@@ -81,6 +83,10 @@ fun SettingsScreen(
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
     onOpenAccessibility: () -> Unit,
+    health: HealthSnapshot,
+    onOpenOverlayPermission: () -> Unit,
+    onRequestBatteryWhitelist: () -> Unit,
+    onRefreshHealth: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var page by rememberSaveable { mutableStateOf(SettingsPage.MAIN) }
@@ -112,12 +118,25 @@ fun SettingsScreen(
             SettingsPage.AUTO_CAPTURE -> AutoCapturePage(
                 pendingCount = pendingCount,
                 message = message,
+                issueCount = health.issueCount,
                 onBack = ::goBack,
                 onInbox = onInbox,
                 onNotificationPermission = onNotificationPermission,
                 onCaptureLog = onCaptureLog,
                 onOpenAccessibility = onOpenAccessibility,
+                onOpenHealth = { page = SettingsPage.HEALTH },
             )
+
+            SettingsPage.HEALTH -> PageScaffold(title = "运行状态", onBack = ::goBack) {
+                HealthContent(
+                    snapshot = health,
+                    onOpenNotificationAccess = onNotificationPermission,
+                    onOpenAccessibility = onOpenAccessibility,
+                    onOpenOverlay = onOpenOverlayPermission,
+                    onRequestBatteryWhitelist = onRequestBatteryWhitelist,
+                    onRefresh = onRefreshHealth,
+                )
+            }
 
             SettingsPage.IMPORT -> ImportPage(
                 webDavConfigured = webDavConfigured,
@@ -229,11 +248,13 @@ private fun MainPage(
 private fun AutoCapturePage(
     pendingCount: Int,
     message: String?,
+    issueCount: Int,
     onBack: () -> Unit,
     onInbox: () -> Unit,
     onNotificationPermission: () -> Unit,
     onCaptureLog: () -> Unit,
     onOpenAccessibility: () -> Unit,
+    onOpenHealth: () -> Unit,
 ) {
     PageScaffold(title = "自动记账", onBack = onBack) {
         Text(
@@ -245,6 +266,13 @@ private fun AutoCapturePage(
         )
         Spacer(Modifier.height(10.dp))
         SettingsCard {
+            SettingsRow(
+                title = "运行状态",
+                subtitle = if (issueCount == 0) "全部就绪" else "$issueCount 项未就绪，点开看看",
+                value = if (issueCount > 0) "⚠" else "✓",
+                onClick = onOpenHealth,
+            )
+            RowDivider()
             SettingsRow(
                 title = "待确认收件箱",
                 subtitle = if (pendingCount > 0) "$pendingCount 笔等待确认" else "暂无待确认记录",
