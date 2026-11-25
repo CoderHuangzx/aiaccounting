@@ -45,6 +45,20 @@ object PaymentParser {
         "com.xunmeng.pinduoduo",              // 拼多多
     )
 
+    /** 明确表示「钱已经付出去了」的成功词。 */
+    private val PAID_MARKERS = listOf(
+        "支付成功", "成功支付", "付款成功", "成功付款", "已支付", "支付完成", "交易成功",
+    )
+
+    /**
+     * 微信渠道的入口条件。
+     *
+     * 之前只认「微信支付」「支付凭证」两个词，真机踩坑：扫个人收款码时，
+     * 通知标题是对方昵称、正文只有「支付成功 ¥3.50」，两个字都没有 → 整笔漏记。
+     */
+    private val WECHAT_MARKERS = listOf("微信支付", "支付凭证", "扫二维码付款", "付款给", "已付款") +
+        PAID_MARKERS
+
     /** 明确表示「钱进来了」的词。 */
     private val INCOME_WORDS = listOf("收款", "到账", "入账", "收到", "收入", "退款", "退回")
 
@@ -92,6 +106,9 @@ object PaymentParser {
         Regex("""在[「『"]([^」』"]{1,20})[」』"]"""),
         Regex("""[「『]([^」』]{1,20})[」』]"""),
         Regex("""在\s*([^\s,，。]{2,20}?)\s*(?:消费|支付|付款)"""),
+        // 扫个人收款码：「扫二维码付款-给XXX」或「付款给XXX」
+        Regex("""付款[-－—]给\s*([^\s,，。]{1,20})"""),
+        Regex("""付款给\s*([^\s,，。]{1,20})"""),
         Regex("""向\s*([^\s,，。]{2,20}?)\s*(?:付款|转账|支付)"""),
         Regex("""(?:商户|商家|店铺)[：:]\s*([^\s,，。]{1,20})"""),
     )
@@ -122,7 +139,8 @@ object PaymentParser {
 
         // 必须是「钱真的付了」的通知，否则普通消息、催付广告都会被误抓
         val looksLikePayment = when (channel) {
-            Channel.WECHAT -> haystack.contains("微信支付") || haystack.contains("支付凭证")
+            // 微信扫个人码时通知里可能既没有「微信支付」也没有「支付凭证」，只有「支付成功」
+            Channel.WECHAT -> WECHAT_MARKERS.any { haystack.contains(it) }
             // 支付宝只认「钱的事」，广告文案里「支付宝」三个字太常见
             Channel.ALIPAY -> ALIPAY_MARKERS.any { haystack.contains(it) }
             else -> PAID_WORDS.any { haystack.contains(it) } &&
@@ -133,10 +151,18 @@ object PaymentParser {
         // 营销/广告一律放过：它们常常既带渠道名又带金额
         if (PROMO_WORDS.any { haystack.contains(it) }) return null
 
-        if (IGNORE_WORDS.any { haystack.contains(it) }) return null
+        // 有「支付成功」这类明确标记时，即使文案里出现「转账」也照记
+        // （微信给个人收款码付款，回执里会写「转账单号」「转账时间」）；
+        // 没有支付标记的「转账」仍然放过，那是人与人之间的转账。
+        val hasPaidMarker = PAID_MARKERS.any { haystack.contains(it) }
+        if (!hasPaidMarker) {
+            if (IGNORE_WORDS.any { haystack.contains(it) }) return null
+        }
         if (NOT_PAID_WORDS.any { haystack.contains(it) }) return null
 
         val type = when {
+            // 「支付成功，对方已收款」——钱是我们付的，不能被「收款」带成收入
+            hasPaidMarker -> TxType.EXPENSE
             INCOME_WORDS.any { haystack.contains(it) } -> TxType.INCOME
             EXPENSE_WORDS.any { haystack.contains(it) } -> TxType.EXPENSE
             channel != Channel.WECHAT && channel != Channel.ALIPAY -> TxType.EXPENSE

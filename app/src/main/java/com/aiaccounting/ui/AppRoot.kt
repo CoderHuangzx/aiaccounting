@@ -109,6 +109,21 @@ fun AppRoot(
     var showWebDav by remember { mutableStateOf(false) }
     var webDavBusy by remember { mutableStateOf(false) }
 
+    // 通知使用权状态：被系统关掉时首页要挂红条，不再「安静失效」
+    var notificationAccessGranted by remember {
+        mutableStateOf(HealthChecks.notificationListenerEnabled(context))
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                notificationAccessGranted = HealthChecks.notificationListenerEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // 崩溃记录
     var crashLog by remember { mutableStateOf(CrashLogState()) }
     val expenseCategories by categoryViewModel.expenseCategories.collectAsStateWithLifecycle()

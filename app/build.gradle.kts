@@ -54,6 +54,37 @@ ksp {
     arg("room.generateKotlin", "true")
 }
 
+/**
+ * 仪器测试的护栏。
+ *
+ * `connectedAndroidTest` 跑完会**卸载 App**——如果真机连着 adb，测试又跑到真机上，
+ * 手机上真实记账数据会被一起清掉（已经发生过两次）。
+ * 这里在任务开始前检查设备列表：只要连着非模拟器设备就直接失败，别让它跑。
+ */
+val adbExecutable: String =
+    runCatching { android.sdkDirectory.resolve("platform-tools/adb").absolutePath }
+        .getOrElse { "adb" }
+
+tasks.matching { it.name.startsWith("connected") && it.name.endsWith("AndroidTest") }
+    .configureEach {
+        doFirst {
+            val devices = runCatching {
+                providers.exec { commandLine(adbExecutable, "devices") }
+                    .standardOutput.asText.get()
+            }.getOrDefault("")
+            val physical = devices.lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("List of devices") }
+                .filter { !it.startsWith("emulator-") }
+            if (physical.isNotEmpty()) {
+                throw GradleException(
+                    "检测到真机连接（${physical.joinToString { it.substringBefore('\t') }}）：" +
+                        "仪器测试会在真机上卸载 App 并清空记账数据。请先断开真机（adb disconnect），再跑测试。",
+                )
+            }
+        }
+    }
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

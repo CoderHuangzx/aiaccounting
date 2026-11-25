@@ -52,8 +52,11 @@ import com.aiaccounting.ui.components.EmojiBadge
 import com.aiaccounting.ui.components.EmptyBlock
 import com.aiaccounting.ui.components.SoftCard
 import com.aiaccounting.ui.components.SourceChip
+import com.aiaccounting.ui.theme.AlertRed
 import com.aiaccounting.ui.theme.BrandBlue
+import com.aiaccounting.ui.theme.AlertRed
 import com.aiaccounting.ui.theme.BrandBlueDeep
+import com.aiaccounting.ui.theme.AlertRed
 import com.aiaccounting.ui.theme.BrandBlueSofter
 import com.aiaccounting.ui.theme.HairLine
 import com.aiaccounting.ui.theme.IncomeGreen
@@ -73,6 +76,9 @@ fun HomeScreen(
     onQueryChange: (String) -> Unit = {},
     pendingCount: Int = 0,
     onPendingClick: () -> Unit = {},
+    /** 通知使用权被系统关掉时置 true：顶上挂一条红色提醒，避免「安静失效」。 */
+    notificationPermissionMissing: Boolean = false,
+    onOpenNotificationPermission: () -> Unit = {},
 ) {
     var hideAmounts by rememberSaveable { mutableStateOf(false) }
 
@@ -98,6 +104,12 @@ fun HomeScreen(
 
             item(key = "search") {
                 SearchBar(query = state.query, onQueryChange = onQueryChange)
+            }
+
+            if (notificationPermissionMissing) {
+                item(key = "perm-warning") {
+                    PermissionWarningBanner(onClick = onOpenNotificationPermission)
+                }
             }
 
             if (pendingCount > 0) {
@@ -543,4 +555,35 @@ private fun TxSource.label(): String = when (this) {
     TxSource.MANUAL -> "手动"
     TxSource.NOTIFICATION -> "通知记账"
     TxSource.IMPORT -> "账单导入"
+}
+/** 通知使用权被关掉时的红色提醒：自动记账此刻是停摆的。 */
+@Composable
+private fun PermissionWarningBanner(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("permissionWarning")
+            .clip(RoundedCornerShape(16.dp))
+            .background(AlertRed.copy(alpha = 0.10f))
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "⚠️", fontSize = 16.sp)
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "通知读取权限已关闭",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = AlertRed,
+            )
+            Text(
+                text = "自动记账停止工作，点这里去开启",
+                fontSize = 11.sp,
+                color = TextSub,
+            )
+        }
+        Text(text = "去开启", fontSize = 12.sp, color = AlertRed)
+    }
 }

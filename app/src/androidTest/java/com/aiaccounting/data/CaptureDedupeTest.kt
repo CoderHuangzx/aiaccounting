@@ -78,6 +78,15 @@ class CaptureDedupeTest {
     }
 
     @Test
+    fun 微信两条同金额通知只记一笔() = runBlocking {
+        // 微信扫个人收款码：支付成功通知 + 对方收款通知，金额一样、商户文案不同
+        val at = 1_795_514_540_421L
+        capture(350, at, merchant = "微信支付")
+        capture(350, at + 15_000, merchant = "只是不想失去您")
+        assertEquals(1, repository.transactionCount())
+    }
+
+    @Test
     fun 超过两小时窗的同金额算两笔() = runBlocking {
         val at = 1_795_514_540_421L
         capture(2590, at, "美团")

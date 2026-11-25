@@ -54,6 +54,33 @@ class PaymentParserTest {
         assertNull(parseWeChat("微信支付", "你已向张三转账¥100.00"))
     }
 
+    // ── 微信扫个人收款码（真机 2026-11-25 漏记的那笔）───────────────────
+
+    @Test
+    fun `扫二维码付款时对方已收款仍算支出`() {
+        // 真机文案：「支付成功，对方已收款」，金额 ¥3.50
+        val parsed = parseWeChat("微信支付", "支付成功，对方已收款 ¥3.50")
+        assertEquals(350L, parsed?.amountCents)
+        assertEquals("「收款」不能把钱判成收入", TxType.EXPENSE, parsed?.type)
+    }
+
+    @Test
+    fun `通知里没有微信支付四个字也能认`() {
+        // 通知标题是对方昵称、正文只有「支付成功 ¥3.50」时，旧逻辑会整笔漏掉
+        val parsed = parseWeChat("只是不想失去您", "支付成功 ¥3.50")
+        assertEquals(350L, parsed?.amountCents)
+        assertEquals(TxType.EXPENSE, parsed?.type)
+    }
+
+    @Test
+    fun `回执里带转账字样也照记并取出对方昵称`() {
+        val text = "扫二维码付款-给只是不想失去您 支付成功 ¥3.50 转账单号 10001073012026112500209018632084"
+        val parsed = parseWeChat("微信支付", text)
+        assertEquals(350L, parsed?.amountCents)
+        assertEquals(TxType.EXPENSE, parsed?.type)
+        assertEquals("只是不想失去您", parsed?.merchant)
+    }
+
     // ── 支付宝 ──────────────────────────────────────────────────────────
 
     @Test
