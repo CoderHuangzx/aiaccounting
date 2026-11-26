@@ -18,6 +18,9 @@ data class Tx(
     val categoryId: Long,
     val categoryName: String,
     val categoryEmoji: String,
+    /** 若这条挂在子分类下，这里是它的一级分类名；报表按一级汇总。 */
+    val parentCategoryName: String? = null,
+    val parentCategoryEmoji: String? = null,
     val accountId: Long,
     val accountName: String,
     val merchant: String? = null,

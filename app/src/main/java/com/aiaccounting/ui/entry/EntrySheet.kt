@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import com.aiaccounting.ui.theme.HairLine
+import com.aiaccounting.ui.theme.PageBg
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -279,11 +281,17 @@ private fun AmountDisplay(state: EntryUiState) {
 
 @Composable
 private fun CategoryGrid(state: EntryUiState, onCategory: (Long) -> Unit) {
+    // 两级分类：先选一级，再选子分类；选了子分类就记在子分类上
+    val parents = state.categories.filter { it.parentId == null }
+    val selected = state.categories.firstOrNull { it.id == state.categoryId }
+    val activeParentId = selected?.parentId ?: selected?.id
+    val children = state.categories.filter { it.parentId != null && it.parentId == activeParentId }
+
     Column(
         modifier = Modifier.padding(top = 10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        state.categories.chunked(5).forEach { row ->
+        parents.chunked(5).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -291,13 +299,50 @@ private fun CategoryGrid(state: EntryUiState, onCategory: (Long) -> Unit) {
                 row.forEach { category ->
                     CategoryCell(
                         category = category,
-                        selected = category.id == state.categoryId,
+                        selected = category.id == activeParentId,
                         modifier = Modifier.weight(1f),
                         onClick = onCategory,
                     )
                 }
                 repeat(5 - row.size) {
                     Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+
+        if (children.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+                    .height(1.dp)
+                    .background(HairLine),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                children.forEach { child ->
+                    val active = child.id == state.categoryId
+                    Column(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (active) BrandBlueSofter else PageBg)
+                            .clickable { onCategory(child.id) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(text = child.emoji, fontSize = 16.sp)
+                        Text(
+                            text = child.name,
+                            fontSize = 11.sp,
+                            color = if (active) BrandBlue else TextSub,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }

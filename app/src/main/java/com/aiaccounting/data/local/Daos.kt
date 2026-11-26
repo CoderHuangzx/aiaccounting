@@ -114,6 +114,26 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE kind = :kind ORDER BY sortOrder, id")
     suspend fun byKind(kind: String): List<CategoryEntity>
 
+    /** 只取一级分类（没有父级的）。 */
+    @Query("SELECT * FROM categories WHERE kind = :kind AND parentId IS NULL ORDER BY sortOrder, id")
+    fun observeTopLevel(kind: String): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories WHERE parentId = :parentId ORDER BY sortOrder, id")
+    fun observeChildren(parentId: Long): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories WHERE parentId = :parentId ORDER BY sortOrder, id")
+    suspend fun childrenOf(parentId: Long): List<CategoryEntity>
+
+    @Query("SELECT COUNT(*) FROM categories WHERE parentId = :parentId")
+    suspend fun childCount(parentId: Long): Int
+
+    /** 一级分类自己的记录 + 所有子分类的记录。 */
+    @Query(
+        "SELECT COUNT(*) FROM transactions WHERE categoryId = :categoryId " +
+            "OR categoryId IN (SELECT id FROM categories WHERE parentId = :categoryId)",
+    )
+    suspend fun usageCountWithChildren(categoryId: Long): Int
+
     @Query("SELECT * FROM categories ORDER BY sortOrder, id")
     suspend fun all(): List<CategoryEntity>
 

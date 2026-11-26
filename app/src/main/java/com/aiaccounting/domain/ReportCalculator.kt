@@ -65,11 +65,14 @@ object ReportCalculator {
 
         val categories = current
             .filter { it.type == TxType.EXPENSE }
-            .groupBy { it.categoryId }
+            // 挂在子分类下的，按一级分类合计，报表才不会碎成十几瓣
+            .groupBy { it.parentCategoryName ?: it.categoryName }
             .map { (_, items) ->
+                val name = items.first().parentCategoryName ?: items.first().categoryName
+                val emoji = items.first().parentCategoryEmoji ?: items.first().categoryEmoji
                 CategorySlice(
-                    name = items.first().categoryName,
-                    emoji = items.first().categoryEmoji,
+                    name = name,
+                    emoji = emoji,
                     cents = items.sumOf { it.amountCents },
                     ratio = if (expense == 0L) 0f else items.sumOf { it.amountCents }.toFloat() / expense,
                 )

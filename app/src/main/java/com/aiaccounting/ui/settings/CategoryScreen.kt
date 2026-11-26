@@ -55,7 +55,7 @@ private val EMOJI_CHOICES = listOf(
     "🧾", "🏥", "🚿", "💡",
 )
 
-/** 分类页需要的全部数据，界面保持无状态，方便测试和快照。 */
+/** 分类页需要的全部数据（含子分类），界面保持无状态，方便测试和快照。 */
 data class CategoryPageState(
     val expense: List<CategoryEntity> = emptyList(),
     val income: List<CategoryEntity> = emptyList(),
@@ -63,10 +63,11 @@ data class CategoryPageState(
     val message: String? = null,
 )
 
-/** 正在编辑/新建的分类。editing 为 null 表示新建。 */
+/** 正在编辑/新建的分类。editing 为 null 表示新建；parentId 非空表示建的是子分类。 */
 private data class CategoryDraft(
     val editing: CategoryEntity?,
     val kind: TxType,
+    val parentId: Long? = null,
     val emoji: String = editing?.emoji ?: "🧾",
     val name: String = editing?.name ?: "",
 )
@@ -77,17 +78,19 @@ fun CategoryContent(
     incomeCategories: List<CategoryEntity>,
     merchantRules: List<Pair<String, String>>,
     message: String?,
-    onAddCategory: (name: String, emoji: String, kind: TxType) -> Unit,
+    onAddCategory: (name: String, emoji: String, kind: TxType, parentId: Long?) -> Unit,
     onUpdateCategory: (id: Long, name: String, emoji: String) -> Unit,
     onDeleteCategory: (id: Long) -> Unit,
     onDeleteMerchantRule: (pattern: String) -> Unit,
 ) {
     var draft by remember { mutableStateOf<CategoryDraft?>(null) }
     var pendingDelete by remember { mutableStateOf<CategoryEntity?>(null) }
+    // 点开的一级分类：底部弹出它的子分类
+    var openedParent by remember { mutableStateOf<CategoryEntity?>(null) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "轻触分类可编辑 / 删除，内置分类只能改名换图标",
+            text = "轻触分类可编辑 / 删除；带子分类的点开可以管理子分类",
             fontSize = 11.sp,
             color = TextSub,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -96,7 +99,8 @@ fun CategoryContent(
         CategorySection(
             title = "支出管理",
             categories = expenseCategories,
-            onPick = { draft = CategoryDraft(editing = it, kind = TxType.EXPENSE) },
+            allCategories = expenseCategories,
+            onPick = { openedParent = it },
             onAdd = { draft = CategoryDraft(editing = null, kind = TxType.EXPENSE) },
             addTag = "addExpenseCategory",
         )
@@ -106,7 +110,8 @@ fun CategoryContent(
         CategorySection(
             title = "收入管理",
             categories = incomeCategories,
-            onPick = { draft = CategoryDraft(editing = it, kind = TxType.INCOME) },
+            allCategories = incomeCategories,
+            onPick = { openedParent = it },
             onAdd = { draft = CategoryDraft(editing = null, kind = TxType.INCOME) },
             addTag = "addIncomeCategory",
         )
@@ -178,22 +183,49 @@ fun CategoryContent(
             Text(
                 text = message,
                 fontSize = 12.sp,
-                color = if (message.contains("不能") || message.contains("还有")) AlertRed else IncomeGreen,
+                color = if (message.contains("不能") || message.contains("还有") || message.contains("先")) {
+                    AlertRed
+                } else {
+                    IncomeGreen
+                },
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
         Spacer(Modifier.height(20.dp))
     }
 
+    // 子分类面板
+    val parent = openedParent
+    if (parent != null) {
+        val all = expenseCategories + incomeCategories
+        SubCategorySheet(
+            parent = parent,
+            children = all.filter { it.parentId == parent.id },
+            onDismiss = { openedParent = null },
+            onEditParent = {
+                draft = CategoryDraft(editing = parent, kind = runCatching { TxType.valueOf(parent.kind) }.getOrDefault(TxType.EXPENSE))
+                openedParent = null
+            },
+            onAddChild = {
+                draft = CategoryDraft(editing = null, kind = runCatching { TxType.valueOf(parent.kind) }.getOrDefault(TxType.EXPENSE), parentId = parent.id)
+            },
+            onPickChild = { child ->
+                draft = CategoryDraft(editing = child, kind = runCatching { TxType.valueOf(parent.kind) }.getOrDefault(TxType.EXPENSE), parentId = parent.id)
+            },
+        )
+    }
+
     val current = draft
     if (current != null) {
+        val all = expenseCategories + incomeCategories
         CategoryEditSheet(
             draft = current,
+            parentName = current.parentId?.let { id -> all.firstOrNull { it.id == id }?.name },
             onDismiss = { draft = null },
             onSave = { name, emoji ->
                 val editing = current.editing
                 if (editing == null) {
-                    onAddCategory(name, emoji, current.kind)
+                    onAddCategory(name, emoji, current.kind, current.parentId)
                 } else {
                     onUpdateCategory(editing.id, name, emoji)
                 }
@@ -211,7 +243,15 @@ fun CategoryContent(
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("删除「${deleting.name}」？") },
-            text = { Text("如果这个分类下还有记录，会提示你先改掉。") },
+            text = {
+                Text(
+                    if (deleting.parentId == null) {
+                        "这个一级分类下如果还有子分类或记录，会拦下来。"
+                    } else {
+                        "如果这个子分类下还有记录，会提示你先改掉。"
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteCategory(deleting.id)
@@ -229,10 +269,12 @@ fun CategoryContent(
 private fun CategorySection(
     title: String,
     categories: List<CategoryEntity>,
+    allCategories: List<CategoryEntity>,
     onPick: (CategoryEntity) -> Unit,
     onAdd: () -> Unit,
     addTag: String,
 ) {
+    val parents = categories.filter { it.parentId == null }
     Text(
         text = title,
         fontSize = 15.sp,
@@ -249,8 +291,7 @@ private fun CategorySection(
             .padding(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // 每行 5 个，最后补一个「添加」格子
-        val cells = categories.map { it as CategoryEntity? } + listOf(null)
+        val cells = parents.map { it as CategoryEntity? } + listOf(null)
         cells.chunked(5).forEach { row ->
             Row(
                 modifier = Modifier
@@ -267,16 +308,17 @@ private fun CategorySection(
                                 onClick = onAdd,
                             )
                         } else {
+                            val childCount = allCategories.count { it.parentId == item.id }
                             CategoryCell(
                                 emoji = item.emoji,
                                 label = item.name,
+                                badge = if (childCount > 0) "$childCount" else null,
                                 modifier = Modifier.testTag("category_${item.id}"),
                                 onClick = { onPick(item) },
                             )
                         }
                     }
                 }
-                // 补齐空位，保证每列等宽
                 repeat(5 - row.size) {
                     Spacer(Modifier.weight(1f))
                 }
@@ -290,6 +332,7 @@ private fun CategoryCell(
     emoji: String,
     label: String,
     modifier: Modifier = Modifier,
+    badge: String? = null,
     onClick: () -> Unit,
 ) {
     Column(
@@ -299,14 +342,26 @@ private fun CategoryCell(
             .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(BrandBlueSofter),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = emoji, fontSize = 20.sp)
+        Box(contentAlignment = Alignment.TopEnd) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(BrandBlueSofter),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = emoji, fontSize = 20.sp)
+            }
+            if (badge != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(BrandBlue)
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                ) {
+                    Text(text = badge, fontSize = 9.sp, color = Color.White)
+                }
+            }
         }
         Spacer(Modifier.height(4.dp))
         Text(
@@ -319,10 +374,126 @@ private fun CategoryCell(
     }
 }
 
+/** 一级分类的子分类面板：跟小米钱包一样，点进去看子分类、加子分类。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SubCategorySheet(
+    parent: CategoryEntity,
+    children: List<CategoryEntity>,
+    onDismiss: () -> Unit,
+    onEditParent: () -> Unit,
+    onAddChild: () -> Unit,
+    onPickChild: (CategoryEntity) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(BrandBlueSofter),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = parent.emoji, fontSize = 20.sp)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = parent.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextMain)
+                    Text(
+                        text = if (children.isEmpty()) "还没有子分类" else "${children.size} 个子分类",
+                        fontSize = 11.sp,
+                        color = TextSub,
+                    )
+                }
+                Text(
+                    text = "编辑",
+                    fontSize = 12.sp,
+                    color = BrandBlue,
+                    modifier = Modifier
+                        .testTag("editParentCategory")
+                        .clip(RoundedCornerShape(50))
+                        .clickable { onEditParent() }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(HairLine),
+            )
+
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "子分类",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextMain,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "点一下子分类可以改名、换图标或删除",
+                fontSize = 11.sp,
+                color = TextFaint,
+            )
+
+            Spacer(Modifier.height(10.dp))
+            val cells = children.map { it as CategoryEntity? } + listOf(null)
+            cells.chunked(5).forEach { row ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { item ->
+                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            if (item == null) {
+                                CategoryCell(
+                                    emoji = "＋",
+                                    label = "添加",
+                                    modifier = Modifier.testTag("addSubCategory"),
+                                    onClick = onAddChild,
+                                )
+                            } else {
+                                CategoryCell(
+                                    emoji = item.emoji,
+                                    label = item.name,
+                                    modifier = Modifier.testTag("sub_${item.id}"),
+                                    onClick = { onPickChild(item) },
+                                )
+                            }
+                        }
+                    }
+                    repeat(5 - row.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "记账时选了这个一级分类，会再让你选具体是哪个子分类。",
+                fontSize = 11.sp,
+                color = TextFaint,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryEditSheet(
     draft: CategoryDraft,
+    parentName: String?,
     onDismiss: () -> Unit,
     onSave: (name: String, emoji: String) -> Unit,
     onDelete: () -> Unit,
@@ -331,6 +502,7 @@ private fun CategoryEditSheet(
     var name by remember(draft) { mutableStateOf(draft.name) }
     var emoji by remember(draft) { mutableStateOf(draft.emoji) }
     val editing = draft.editing
+    val isChild = draft.parentId != null
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -345,7 +517,11 @@ private fun CategoryEditSheet(
                 .padding(bottom = 24.dp),
         ) {
             Text(
-                text = if (editing == null) "新建分类" else "编辑分类",
+                text = when {
+                    editing != null -> "编辑分类"
+                    isChild -> "新建子分类（$parentName）"
+                    else -> "新建分类"
+                },
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextMain,

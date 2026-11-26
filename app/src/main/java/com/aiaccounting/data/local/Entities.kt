@@ -22,6 +22,8 @@ data class CategoryEntity(
     val sortOrder: Int = 0,
     /** 内置分类：允许改名换图标，但不允许删除；用户自己加的为 false。 */
     val isBuiltIn: Boolean = true,
+    /** 二级分类指向的一级分类 id；null 表示它本身就是一级分类。 */
+    val parentId: Long? = null,
 )
 
 /**

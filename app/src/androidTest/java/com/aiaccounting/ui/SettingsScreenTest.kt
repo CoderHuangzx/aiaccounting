@@ -71,7 +71,7 @@ class SettingsScreenTest {
                     onToggleSource = { source, enabled -> toggledSource = source.key to enabled },
                     onToggleAllSources = { allSourcesToggled = it },
                     categoryState = com.aiaccounting.ui.settings.CategoryPageState(),
-                    onAddCategory = { name, emoji, kind -> addedCategory = Triple(name, emoji, kind) },
+                    onAddCategory = { name, emoji, kind, _ -> addedCategory = Triple(name, emoji, kind) },
                     onUpdateCategory = { _, _, _ -> },
                     onDeleteCategory = {},
                     onDeleteMerchantRule = {},

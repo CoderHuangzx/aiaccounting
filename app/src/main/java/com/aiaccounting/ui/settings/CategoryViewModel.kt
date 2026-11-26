@@ -38,10 +38,14 @@ class CategoryViewModel(private val repository: AccountingRepository) : ViewMode
     var message by mutableStateOf<String?>(null)
         private set
 
-    fun addCategory(name: String, emoji: String, kind: TxType) {
+    fun addCategory(name: String, emoji: String, kind: TxType, parentId: Long? = null) {
         viewModelScope.launch {
-            val created = repository.addCategory(name, emoji, kind)
-            message = if (created == null) "分类名重复或为空，换个名字试试" else "已添加「${created.name}」"
+            val created = repository.addCategory(name, emoji, kind, parentId)
+            message = if (created == null) {
+                "分类名重复或为空，换个名字试试"
+            } else {
+                "已添加「${created.name}」"
+            }
         }
     }
 
@@ -60,6 +64,8 @@ class CategoryViewModel(private val repository: AccountingRepository) : ViewMode
                 is AccountingRepository.DeleteCategoryResult.NotFound -> "分类不存在"
                 is AccountingRepository.DeleteCategoryResult.InUse ->
                     "这个分类下还有 ${result.count} 笔记录，先改掉再删"
+                is AccountingRepository.DeleteCategoryResult.HasChildren ->
+                    "下面还有 ${result.count} 个子分类，先删掉子分类"
             }
         }
     }

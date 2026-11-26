@@ -522,7 +522,9 @@ fun AppRoot(
                 },
                 message = categoryViewModel.message,
             ),
-            onAddCategory = categoryViewModel::addCategory,
+            onAddCategory = { name, emoji, kind, parentId ->
+                categoryViewModel.addCategory(name, emoji, kind, parentId)
+            },
             onUpdateCategory = { id, name, emoji -> categoryViewModel.updateCategory(id, name, emoji) },
             onDeleteCategory = categoryViewModel::deleteCategory,
             onDeleteMerchantRule = categoryViewModel::deleteMerchantRule,

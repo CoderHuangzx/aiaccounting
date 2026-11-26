@@ -100,7 +100,7 @@ fun SettingsScreen(
     onToggleSource: (AutoSource, Boolean) -> Unit,
     onToggleAllSources: (Boolean) -> Unit,
     categoryState: CategoryPageState,
-    onAddCategory: (name: String, emoji: String, kind: TxType) -> Unit,
+    onAddCategory: (name: String, emoji: String, kind: TxType, parentId: Long?) -> Unit,
     onUpdateCategory: (id: Long, name: String, emoji: String) -> Unit,
     onDeleteCategory: (id: Long) -> Unit,
     onDeleteMerchantRule: (pattern: String) -> Unit,

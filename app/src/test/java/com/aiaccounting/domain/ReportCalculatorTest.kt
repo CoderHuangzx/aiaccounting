@@ -106,4 +106,31 @@ class ReportCalculatorTest {
         assertEquals(0L, data.expenseCents)
         assertEquals(0L, data.incomeCents)
     }
+    @Test
+    fun `sub categories roll up to their parent`() {
+        val day = LocalDate.of(2026, 11, 22)
+        fun lunch(cents: Long) = Tx(
+            id = 100,
+            type = TxType.EXPENSE,
+            amountCents = cents,
+            occurredAt = day.atTime(12, 0).atZone(zone).toInstant().toEpochMilli(),
+            categoryId = 11L,
+            categoryName = "Lunch",
+            categoryEmoji = "X",
+            parentCategoryName = "Food",
+            parentCategoryEmoji = "F",
+            accountId = 1L,
+            accountName = "WeChat",
+        )
+
+        val data = ReportCalculator.build(
+            txs = listOf(lunch(1_000), lunch(2_000)),
+            range = ReportPeriods.of(PeriodUnit.MONTH, today),
+            today = today,
+            zone = zone,
+        )
+
+        val slice = data.categories.single { it.name == "Food" }
+        assertEquals(3_000L, slice.cents)
+    }
 }

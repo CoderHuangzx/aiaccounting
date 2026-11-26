@@ -44,6 +44,28 @@ class AccountingRepository(
     suspend fun ensureSeeded() = seedMutex.withLock {
         if (categoryDao.count() == 0) categoryDao.insertAll(SeedData.allCategories)
         if (accountDao.count() == 0) accountDao.insertAll(SeedData.accounts)
+        seedSubCategories()
+    }
+
+    /** 给内置一级分类补上子分类；已经有过子分类的跳过。 */
+    private suspend fun seedSubCategories() {
+        val all = categoryDao.all()
+        SeedData.subCategories.forEach { (parentName, children) ->
+            val parent = all.firstOrNull { it.name == parentName && it.parentId == null } ?: return@forEach
+            if (categoryDao.childCount(parent.id) > 0) return@forEach
+            categoryDao.insertAll(
+                children.mapIndexed { index, (name, emoji) ->
+                    CategoryEntity(
+                        name = name,
+                        emoji = emoji,
+                        kind = parent.kind,
+                        sortOrder = index,
+                        isBuiltIn = true,
+                        parentId = parent.id,
+                    )
+                },
+            )
+        }
     }
 
     // ── 自动捕捉 ────────────────────────────────────────────────────────
@@ -55,7 +77,14 @@ class AccountingRepository(
     ) { transactions, categories, accounts ->
         val categoryMap = categories.associateBy { it.id }
         val accountMap = accounts.associateBy { it.id }
-        transactions.map { it.toTx(categoryMap[it.categoryId], accountMap[it.accountId]) }
+        transactions.map { entity ->
+                        val category = categoryMap[entity.categoryId]
+                        entity.toTx(
+                            category = category,
+                            account = accountMap[entity.accountId],
+                            parentCategory = category?.parentId?.let { categoryMap[it] },
+                        )
+                    }
     }
 
     suspend fun confirmTransaction(id: Long) =
@@ -203,11 +232,27 @@ class AccountingRepository(
     ) { transactions, categories, accounts ->
         val categoryMap = categories.associateBy { it.id }
         val accountMap = accounts.associateBy { it.id }
-        transactions.map { it.toTx(categoryMap[it.categoryId], accountMap[it.accountId]) }
+        transactions.map { entity ->
+                        val category = categoryMap[entity.categoryId]
+                        entity.toTx(
+                            category = category,
+                            account = accountMap[entity.accountId],
+                            parentCategory = category?.parentId?.let { categoryMap[it] },
+                        )
+                    }
     }
 
     fun observeCategories(kind: TxType): Flow<List<CategoryEntity>> =
         categoryDao.observeByKind(kind.name)
+
+    /** 一级分类（记账页先展示这一层）。 */
+    fun observeTopLevel(kind: TxType): Flow<List<CategoryEntity>> =
+        categoryDao.observeTopLevel(kind.name)
+
+    fun observeChildren(parentId: Long): Flow<List<CategoryEntity>> =
+        categoryDao.observeChildren(parentId)
+
+    suspend fun childrenOf(parentId: Long): List<CategoryEntity> = categoryDao.childrenOf(parentId)
 
     fun observeAccounts(): Flow<List<AccountEntity>> = accountDao.observeAll()
 
@@ -215,19 +260,25 @@ class AccountingRepository(
 
     // ── 分类管理 ────────────────────────────────────────────────────────
 
-    /** 新建分类。同名（同类型）已存在时返回 null。 */
-    suspend fun addCategory(name: String, emoji: String, kind: TxType): CategoryEntity? {
+    /** 新建分类。同一层里重名、或名字为空时返回 null。 */
+    suspend fun addCategory(
+        name: String,
+        emoji: String,
+        kind: TxType,
+        parentId: Long? = null,
+    ): CategoryEntity? {
         val trimmed = name.trim().take(8)
         if (trimmed.isEmpty()) return null
-        if (categoryDao.byKind(kind.name).any { it.name == trimmed }) return null
-        val order = categoryDao.maxSortOrder(kind.name) + 1
+        val siblings = categoryDao.byKind(kind.name).filter { it.parentId == parentId }
+        if (siblings.any { it.name == trimmed }) return null
         val id = categoryDao.insert(
             CategoryEntity(
                 name = trimmed,
                 emoji = emoji,
                 kind = kind.name,
-                sortOrder = order,
+                sortOrder = siblings.size,
                 isBuiltIn = false,
+                parentId = parentId,
             ),
         )
         return categoryDao.findById(id)
@@ -242,11 +293,13 @@ class AccountingRepository(
         return true
     }
 
-    /** 删除分类；有记录时拒绝，避免把账目变成孤儿。 */
+    /** 删除分类；有子分类或有记录时拒绝，避免把账目变成孤儿。 */
     suspend fun deleteCategory(id: Long): DeleteCategoryResult {
         val existing = categoryDao.findById(id) ?: return DeleteCategoryResult.NotFound
         if (existing.isBuiltIn) return DeleteCategoryResult.BuiltIn
-        val used = categoryDao.usageCount(id)
+        val children = categoryDao.childCount(id)
+        if (children > 0) return DeleteCategoryResult.HasChildren(children)
+        val used = categoryDao.usageCountWithChildren(id)
         if (used > 0) return DeleteCategoryResult.InUse(used)
         categoryDao.deleteById(id)
         return DeleteCategoryResult.Deleted
@@ -328,6 +381,7 @@ class AccountingRepository(
         data object BuiltIn : DeleteCategoryResult
         data object NotFound : DeleteCategoryResult
         data class InUse(val count: Int) : DeleteCategoryResult
+        data class HasChildren(val count: Int) : DeleteCategoryResult
     }
 
     suspend fun accounts(): List<AccountEntity> = accountDao.all()
@@ -506,7 +560,11 @@ class AccountingRepository(
         return rows.size
     }
 
-    private fun TransactionEntity.toTx(category: CategoryEntity?, account: AccountEntity?): Tx = Tx(
+    private fun TransactionEntity.toTx(
+        category: CategoryEntity?,
+        account: AccountEntity?,
+        parentCategory: CategoryEntity? = null,
+    ): Tx = Tx(
         id = id,
         type = runCatching { TxType.valueOf(type) }.getOrDefault(TxType.EXPENSE),
         amountCents = amountCents,
@@ -514,6 +572,8 @@ class AccountingRepository(
         categoryId = categoryId,
         categoryName = category?.name ?: "未分类",
         categoryEmoji = category?.emoji ?: "❓",
+        parentCategoryName = parentCategory?.name,
+        parentCategoryEmoji = parentCategory?.emoji,
         accountId = accountId,
         accountName = account?.name ?: "未知账户",
         merchant = merchant,

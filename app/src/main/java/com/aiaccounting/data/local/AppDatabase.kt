@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RawCaptureEntity::class,
         MerchantRuleEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -50,6 +50,13 @@ abstract class AppDatabase : RoomDatabase() {
                     """.trimIndent(),
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_raw_captures_capturedAt` ON `raw_captures` (`capturedAt`)")
+            }
+        }
+
+        /** v4 → v5：分类支持二级（子分类），parentId 为空表示一级分类。 */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `categories` ADD COLUMN `parentId` INTEGER")
             }
         }
 
@@ -88,7 +95,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     NAME,
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

@@ -51,14 +51,16 @@ class SeedingTest {
         }
         jobs.awaitAll()
 
-        assertEquals("分类应为内置的 15 个", 15, db.categoryDao().count())
+        // 15 个一级分类 + 内置子分类
+        assertEquals("一级分类应为 15 个", 15, db.categoryDao().all().count { it.parentId == null })
+        assertEquals("总分类数应等于种子总和", SeedData.totalCategoryCount, db.categoryDao().count())
         assertEquals("账户应为 4 个", 4, db.accountDao().count())
     }
 
     @Test
     fun 重复调用不会重复写入() = runBlocking {
         repeat(5) { repository.ensureSeeded() }
-        assertEquals(15, db.categoryDao().count())
+        assertEquals(SeedData.totalCategoryCount, db.categoryDao().count())
         assertEquals(4, db.accountDao().count())
     }
 
@@ -73,6 +75,6 @@ class SeedingTest {
             "自建分类应保留",
             db.categoryDao().all().any { it.name == "奶茶" },
         )
-        assertEquals(16, db.categoryDao().count())
+        assertEquals(SeedData.totalCategoryCount + 1, db.categoryDao().count())
     }
 }
