@@ -20,16 +20,24 @@ object WeChatPayScreenParser {
 
     data class Result(
         val amountCents: Long,
+        val type: TxType,
         val merchant: String?,
         val evidence: String,
     )
 
-    /** 一定是「支付完成」页面才认。 */
-    private val SUCCESS_WORDS = listOf("支付成功", "支付完成", "付款成功")
+    /** 付出去的页面。 */
+    private val EXPENSE_WORDS = listOf("支付成功", "支付完成", "付款成功")
+
+    /**
+     * 收到的页面：别人转给你 / 收款到账。
+     * 真机文案：「你已收款，资金已存入零钱 ¥1800.00」。
+     */
+    private val INCOME_WORDS = listOf("你已收款", "收款到账", "收款成功", "已收款", "资金已存入零钱")
 
     /** 页面特征：防止在聊天列表里误触。 */
     private val PAGE_WORDS = listOf(
-        "使用零钱支付", "对方已收款", "转账单号", "支付方式", "扫二维码付款", "转账时间", "完成",
+        "使用零钱支付", "对方已收款", "转账单号", "支付方式", "扫二维码付款", "转账时间",
+        "收款时间", "零钱余额", "账单详情", "完成",
     )
 
     private val AMOUNT = Regex("""[¥￥]\s*(\d{1,7}(?:\.\d{1,2})?)""")
@@ -41,10 +49,18 @@ object WeChatPayScreenParser {
 
     fun parse(texts: List<String>): Result? {
         val all = texts.joinToString(" ")
-        if (SUCCESS_WORDS.none { all.contains(it) }) return null
-        if (PAGE_WORDS.none { all.contains(it) }) return null
         // 广告一律放过
         if (listOf("立减", "优惠券", "红包已过期", "推荐").any { all.contains(it) }) return null
+
+        val expense = EXPENSE_WORDS.any { all.contains(it) }
+        val income = INCOME_WORDS.any { all.contains(it) }
+        // 「支付成功，对方已收款」同时命中两边，付款优先
+        val type = when {
+            expense -> TxType.EXPENSE
+            income -> TxType.INCOME
+            else -> return null
+        }
+        if (PAGE_WORDS.none { all.contains(it) }) return null
 
         val amountText = AMOUNT.find(all)?.groupValues?.get(1)
             ?: SIGNED_AMOUNT.find(all)?.groupValues?.get(1)
@@ -54,8 +70,13 @@ object WeChatPayScreenParser {
 
         return Result(
             amountCents = cents,
-            merchant = extractPayee(texts, all),
-            evidence = "微信支付成功 ¥" + formatCents(cents),
+            type = type,
+            merchant = if (type == TxType.EXPENSE) extractPayee(texts, all) else null,
+            evidence = if (type == TxType.EXPENSE) {
+                "微信支付成功 ¥" + formatCents(cents)
+            } else {
+                "微信收款 ¥" + formatCents(cents)
+            },
         )
     }
 

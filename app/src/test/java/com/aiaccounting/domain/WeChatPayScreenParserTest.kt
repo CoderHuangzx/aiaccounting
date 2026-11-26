@@ -53,6 +53,39 @@ class WeChatPayScreenParserTest {
         assertEquals(1280L, parsed?.amountCents)
     }
 
+    // ── 收款页面（2026-11-26 真机：你已收款 ¥1800.00）──────────────────
+
+    @Test
+    fun `收款页面记成收入`() {
+        val texts = listOf(
+            "你已收款，资金已存入零钱",
+            "¥ 1800.00",
+            "零钱余额",
+            "转账时间",
+            "2026年11月26日 17:28:11",
+            "收款时间",
+            "2026年11月26日 17:28:30",
+            "账单详情",
+        )
+        val parsed = WeChatPayScreenParser.parse(texts)
+        assertEquals(180000L, parsed?.amountCents)
+        assertEquals(TxType.INCOME, parsed?.type)
+    }
+
+    @Test
+    fun `收款到账也能认出是收入`() {
+        val texts = listOf("收款到账", "¥ 20.00", "零钱余额", "账单详情")
+        val parsed = WeChatPayScreenParser.parse(texts)
+        assertEquals(2000L, parsed?.amountCents)
+        assertEquals(TxType.INCOME, parsed?.type)
+    }
+
+    @Test
+    fun `付款页仍然是支出`() {
+        val texts = listOf("支付成功", "只是不想失去您（*萍）", "¥ 3.50", "使用零钱支付", "完成")
+        assertEquals(TxType.EXPENSE, WeChatPayScreenParser.parse(texts)?.type)
+    }
+
     @Test
     fun `普通聊天页面不会被当成支付`() {
         val texts = listOf("只是不想失去您", "晚上一起吃饭吗", "19:30", "3.50")

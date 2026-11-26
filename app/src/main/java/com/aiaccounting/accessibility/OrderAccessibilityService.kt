@@ -122,7 +122,7 @@ class OrderAccessibilityService : AccessibilityService() {
     private fun recordWeChatPayment(packageName: String, texts: List<String>) {
         val parsed = WeChatPayScreenParser.parse(texts) ?: return
 
-        val signature = "wechat|${parsed.amountCents}|${parsed.merchant.orEmpty()}"
+        val signature = "wechat|${parsed.type}|${parsed.amountCents}|${parsed.merchant.orEmpty()}"
         val now = System.currentTimeMillis()
         val prefs = getSharedPreferences("order_screen", MODE_PRIVATE)
         val lastSignature = prefs.getString(KEY_SIGNATURE, null)
@@ -136,7 +136,7 @@ class OrderAccessibilityService : AccessibilityService() {
                 repository.ensureSeeded()
                 repository.recordRawCapture(
                     packageName = packageName,
-                    title = "微信支付成功",
+                    title = parsed.evidence,
                     text = texts.joinToString(" ").take(300),
                     parsed = true,
                     reason = null,
