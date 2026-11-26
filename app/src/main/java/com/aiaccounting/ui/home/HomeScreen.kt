@@ -79,6 +79,9 @@ fun HomeScreen(
     /** 通知使用权被系统关掉时置 true：顶上挂一条红色提醒，避免「安静失效」。 */
     notificationPermissionMissing: Boolean = false,
     onOpenNotificationPermission: () -> Unit = {},
+    /** 无障碍服务没开时置 true：读屏记账（微信/淘宝/京东等）是停摆的。 */
+    accessibilityMissing: Boolean = false,
+    onOpenAccessibility: () -> Unit = {},
 ) {
     var hideAmounts by rememberSaveable { mutableStateOf(false) }
 
@@ -108,7 +111,23 @@ fun HomeScreen(
 
             if (notificationPermissionMissing) {
                 item(key = "perm-warning") {
-                    PermissionWarningBanner(onClick = onOpenNotificationPermission)
+                    PermissionWarningBanner(
+                        title = "通知读取权限已关闭",
+                        subtitle = "自动记账停止工作，点这里去开启",
+                        tag = "permissionWarning",
+                        onClick = onOpenNotificationPermission,
+                    )
+                }
+            }
+
+            if (accessibilityMissing) {
+                item(key = "access-warning") {
+                    PermissionWarningBanner(
+                        title = "无障碍服务未开启",
+                        subtitle = "读屏记账停止工作（微信/淘宝/京东等），点这里去开启",
+                        tag = "accessibilityWarning",
+                        onClick = onOpenAccessibility,
+                    )
                 }
             }
 
@@ -558,11 +577,16 @@ private fun TxSource.label(): String = when (this) {
 }
 /** 通知使用权被关掉时的红色提醒：自动记账此刻是停摆的。 */
 @Composable
-private fun PermissionWarningBanner(onClick: () -> Unit) {
+private fun PermissionWarningBanner(
+    title: String,
+    subtitle: String,
+    tag: String,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("permissionWarning")
+            .testTag(tag)
             .clip(RoundedCornerShape(16.dp))
             .background(AlertRed.copy(alpha = 0.10f))
             .clickable { onClick() }
@@ -573,13 +597,13 @@ private fun PermissionWarningBanner(onClick: () -> Unit) {
         Spacer(Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "通知读取权限已关闭",
+                text = title,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = AlertRed,
             )
             Text(
-                text = "自动记账停止工作，点这里去开启",
+                text = subtitle,
                 fontSize = 11.sp,
                 color = TextSub,
             )

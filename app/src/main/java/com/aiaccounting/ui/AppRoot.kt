@@ -113,11 +113,15 @@ fun AppRoot(
     var notificationAccessGranted by remember {
         mutableStateOf(HealthChecks.notificationListenerEnabled(context))
     }
+    var accessibilityGranted by remember {
+        mutableStateOf(HealthChecks.accessibilityEnabled(context))
+    }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 notificationAccessGranted = HealthChecks.notificationListenerEnabled(context)
+                accessibilityGranted = HealthChecks.accessibilityEnabled(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

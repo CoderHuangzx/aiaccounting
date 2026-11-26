@@ -48,4 +48,23 @@ class HomePermissionBannerTest {
 
         composeRule.onNodeWithTag("permissionWarning").assertDoesNotExist()
     }
+
+    @Test
+    fun 无障碍没开时也提示并能跳转() {
+        var clicked = false
+        composeRule.setContent {
+            AIAccountingTheme {
+                HomeScreen(
+                    state = HomeUiState(),
+                    accessibilityMissing = true,
+                    onOpenAccessibility = { clicked = true },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("accessibilityWarning").assertIsDisplayed()
+        composeRule.onNodeWithText("无障碍服务未开启").assertIsDisplayed()
+        composeRule.onNodeWithTag("accessibilityWarning").performClick()
+        assertTrue(clicked)
+    }
 }

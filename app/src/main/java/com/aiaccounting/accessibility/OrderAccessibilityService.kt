@@ -7,7 +7,9 @@ import com.aiaccounting.AccountingApp
 import com.aiaccounting.data.AutoSource
 import com.aiaccounting.data.AutoSourceSettings
 import com.aiaccounting.domain.OrderScreenParser
+import com.aiaccounting.domain.WeChatPayScreenParser
 import com.aiaccounting.domain.TxSource
+import com.aiaccounting.domain.TxType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -51,6 +53,12 @@ class OrderAccessibilityService : AccessibilityService() {
 
         val texts = collectTexts(root) ?: return
         if (texts.isEmpty()) return
+
+        // 微信走单独的解析：扫个人收款码付款时微信不发通知，只能读「支付成功」页面
+        if (foregroundPackage == WECHAT_PACKAGE) {
+            recordWeChatPayment(foregroundPackage, texts)
+            return
+        }
 
         val parsed = OrderScreenParser.parse(texts) ?: return
 
@@ -105,6 +113,53 @@ class OrderAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() = Unit
 
+    /**
+     * 微信「支付成功」页面 → 记一笔支出。
+     *
+     * 微信给个人收款码付款时**不推系统通知**（通知只覆盖商户收款），
+     * 通知捕捉这条路对这类支付是断的，只能靠读屏。
+     */
+    private fun recordWeChatPayment(packageName: String, texts: List<String>) {
+        val parsed = WeChatPayScreenParser.parse(texts) ?: return
+
+        val signature = "wechat|${parsed.amountCents}|${parsed.merchant.orEmpty()}"
+        val now = System.currentTimeMillis()
+        val prefs = getSharedPreferences("order_screen", MODE_PRIVATE)
+        val lastSignature = prefs.getString(KEY_SIGNATURE, null)
+        val lastAt = prefs.getLong(KEY_TIME, 0L)
+        if (signature == lastSignature && now - lastAt < DEDUPE_WINDOW_MS) return
+        prefs.edit().putString(KEY_SIGNATURE, signature).putLong(KEY_TIME, now).apply()
+
+        val repository = (application as AccountingApp).repository
+        scope.launch {
+            runCatching {
+                repository.ensureSeeded()
+                repository.recordRawCapture(
+                    packageName = packageName,
+                    title = "微信支付成功",
+                    text = texts.joinToString(" ").take(300),
+                    parsed = true,
+                    reason = null,
+                )
+                val accountId = repository.accountIdByName("微信")
+                    ?: repository.accounts().firstOrNull()?.id
+                val categoryId = repository.resolveCategoryId(parsed.merchant, TxType.EXPENSE)
+                if (accountId != null && categoryId != null) {
+                    repository.addCapturedTransaction(
+                        type = TxType.EXPENSE,
+                        amountCents = parsed.amountCents,
+                        categoryId = categoryId,
+                        accountId = accountId,
+                        occurredAt = now,
+                        merchant = parsed.merchant,
+                        note = "读屏：" + parsed.evidence,
+                        source = TxSource.NOTIFICATION,
+                    )
+                }
+            }
+        }
+    }
+
     private fun collectTexts(root: AccessibilityNodeInfo?): List<String>? {
         val node = root ?: return null
         val result = mutableListOf<String>()
@@ -135,7 +190,9 @@ class OrderAccessibilityService : AccessibilityService() {
             "com.xunmeng.pinduoduo",
             "com.sankuai.meituan",
             "com.sankuai.meituan.takeoutnew",
+            "com.tencent.mm",
         )
+        const val WECHAT_PACKAGE = "com.tencent.mm"
         const val MAX_NODES = 400
         const val MAX_TEXTS = 200
         const val KEY_SIGNATURE = "last_signature"
